@@ -47,6 +47,61 @@ exports.updateMenuItem = async (req, res) => {
   }
 };
 
+// ✅ ADD THIS - Get items by category
+exports.getMenuItemsByCategory = async (req, res) => {
+  try {
+    const category = req.params.category;
+    const menuItems = await Menu.findByCategory(category);
+    res.json(menuItems);
+  } catch (error) {
+    console.error("Error getting menu items by category:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// ✅ ADD THIS - Search menu items
+exports.searchMenuItems = async (req, res) => {
+  try {
+    const query = req.params.query || "";
+    if (!query.trim()) {
+      const allItems = await Menu.findAll();
+      return res.json(allItems);
+    }
+    const menuItems = await Menu.search(query);
+    res.json(menuItems);
+  } catch (error) {
+    console.error("Error searching menu items:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// ✅ ADD THIS - Get all categories
+exports.getMenuCategories = async (req, res) => {
+  try {
+    const categories = await Menu.getCategories();
+    res.json(categories);
+  } catch (error) {
+    console.error("Error getting categories:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// ✅ ADD THIS - Update availability
+exports.updateMenuItemAvailability = async (req, res) => {
+  try {
+    const { is_available } = req.body;
+    const updatedItem = await Menu.updateAvailability(req.params.id, is_available);
+    
+    if (!updatedItem) {
+      return res.status(404).json({ error: "Menu item not found" });
+    }
+    
+    res.json(updatedItem);
+  } catch (error) {
+    console.error("Error updating availability:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
 exports.deleteMenuItem = async (req, res) => {
   try {
     const deleted = await Menu.delete(req.params.id);

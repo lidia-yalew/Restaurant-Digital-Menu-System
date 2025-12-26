@@ -18,4 +18,18 @@ router.put("/:id", menuController.updateMenuItem);
 // DELETE menu item
 router.delete("/:id", menuController.deleteMenuItem);
 
+// ✅ ADD THESE NEW ROUTES:
+
+// GET items by category
+router.get("/category/:category", menuController.getMenuItemsByCategory);
+
+// GET all categories
+router.get("/categories/all", menuController.getMenuCategories);
+
+// GET search menu items
+router.get("/search/:query", menuController.searchMenuItems);
+
+// PATCH update availability
+router.patch("/:id/availability", menuController.updateMenuItemAvailability);
+
 module.exports = router;
