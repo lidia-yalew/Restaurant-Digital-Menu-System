@@ -1,11 +1,9 @@
 import React from 'react'
-import TestOrdersAPI from './test/TestOrdersAPI'
-import TestMenuAPI from './test/TestmenuAPI'
+import Home from './pages/Home/Home'
 function App() {
   return (
     <div>
-      <TestOrdersAPI/>
-      <TestMenuAPI/>
+      <Home/>
     </div>
   )
 }

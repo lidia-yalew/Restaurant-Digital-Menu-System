@@ -2,7 +2,6 @@ const Order = require("../model/order.model");
 
 exports.createOrder = async (req, res) => {
   try {
-    // Validate required fields
     const { customer_name, table_number, items } = req.body;
 
     if (!customer_name || !table_number || !items || items.length === 0) {
@@ -12,18 +11,19 @@ exports.createOrder = async (req, res) => {
       });
     }
 
-    // Calculate total amount if not provided
+    // Calculate total amount
     let { total_amount } = req.body;
     if (!total_amount && items) {
       total_amount = items.reduce((sum, item) => {
-        return sum + item.price_at_time * item.quantity;
+        return sum + (item.price_at_time || 0) * (item.quantity || 1);
       }, 0);
     }
 
     const orderData = {
       ...req.body,
       total_amount: total_amount || 0,
-      status: req.body.status || "pending", // Default status
+      status: req.body.status || "pending",
+      notes: req.body.notes || "",
     };
 
     const newOrder = await Order.create(orderData);
@@ -57,33 +57,110 @@ exports.getOrderById = async (req, res) => {
   }
 };
 
+// ✅ UPDATE: Customer only, 5-minute limit
 exports.updateOrder = async (req, res) => {
   try {
-    const updatedOrder = await Order.update(req.params.id, req.body);
-    if (!updatedOrder) {
+    const { id } = req.params;
+    const user = req.user; // From JWT token
+    const orderData = req.body;
+
+    // Get the order
+    const order = await Order.findById(id);
+    if (!order) {
       return res.status(404).json({ error: "Order not found" });
     }
-    res.json(updatedOrder);
+
+    // Verify customer owns this order by phone number
+    if (order.phone_number !== user.phone) {
+      return res.status(403).json({
+        error: "You can only update your own orders",
+      });
+    }
+
+    // Check 5-minute time limit
+    const orderTime = new Date(order.created_at);
+    const currentTime = new Date();
+    const timeDifference = (currentTime - orderTime) / (1000 * 60);
+
+    if (timeDifference > 5) {
+      return res.status(400).json({
+        error: `Cannot update order after 5 minutes. Order was placed ${Math.floor(
+          timeDifference
+        )} minutes ago.`,
+      });
+    }
+
+    // Only allow updates if status is still pending
+    if (order.status !== "pending") {
+      return res.status(400).json({
+        error: `Cannot update order in "${order.status}" status. Only pending orders can be updated.`,
+      });
+    }
+
+    // Update order
+    const updatedOrder = await Order.update(id, {
+      ...order,
+      ...orderData,
+      status: "pending", // Keep as pending after update
+    });
+
+    res.json({
+      message: "Order updated successfully",
+      order: updatedOrder,
+      minutesSinceOrder: Math.floor(timeDifference),
+    });
   } catch (error) {
     console.error("Error updating order:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
 
+// ✅ UPDATE: Customer only, 5-minute limit
 exports.deleteOrder = async (req, res) => {
   try {
-    const deleted = await Order.delete(req.params.id);
-    if (!deleted) {
+    const { id } = req.params;
+    const user = req.user;
+
+    // Get the order
+    const order = await Order.findById(id);
+    if (!order) {
       return res.status(404).json({ error: "Order not found" });
     }
-    res.json({ message: "Order deleted successfully" });
+
+    // Verify customer owns this order by phone number
+    if (order.phone_number !== user.phone) {
+      return res.status(403).json({
+        error: "You can only delete your own orders",
+      });
+    }
+
+    // Check 5-minute time limit
+    const orderTime = new Date(order.created_at);
+    const currentTime = new Date();
+    const timeDifference = (currentTime - orderTime) / (1000 * 60);
+
+    if (timeDifference > 5) {
+      return res.status(400).json({
+        error: `Cannot delete order after 5 minutes. Order was placed ${Math.floor(
+          timeDifference
+        )} minutes ago.`,
+      });
+    }
+
+    // Delete order
+    await Order.delete(id);
+
+    res.json({
+      message: "Order deleted successfully",
+      orderId: id,
+      deletedAt: new Date().toISOString(),
+      minutesSinceOrder: Math.floor(timeDifference),
+    });
   } catch (error) {
     console.error("Error deleting order:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };
-
-// ✅ ADD THESE NEW CONTROLLER FUNCTIONS:
 
 exports.getOrdersByStatus = async (req, res) => {
   try {
@@ -107,10 +184,12 @@ exports.getOrdersByTable = async (req, res) => {
   }
 };
 
+// ✅ UPDATE: Staff/Admin only
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
+    const user = req.user;
 
     if (!status) {
       return res.status(400).json({ error: "Status is required" });
@@ -122,7 +201,6 @@ exports.updateOrderStatus = async (req, res) => {
       "preparing",
       "ready",
       "served",
-      "cancelled",
     ];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
@@ -134,7 +212,12 @@ exports.updateOrderStatus = async (req, res) => {
     if (!updatedOrder) {
       return res.status(404).json({ error: "Order not found" });
     }
-    res.json(updatedOrder);
+
+    res.json({
+      ...updatedOrder,
+      updatedBy: user.role,
+      updatedAt: new Date().toISOString(),
+    });
   } catch (error) {
     console.error("Error updating order status:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -147,6 +230,34 @@ exports.getKitchenQueue = async (req, res) => {
     res.json(orders);
   } catch (error) {
     console.error("Error getting kitchen queue:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// ✅ Simple Statistics for Manager
+exports.getTodayStats = async (req, res) => {
+  try {
+    const stats = await Order.getTodayStats();
+    res.json(stats);
+  } catch (error) {
+    console.error("Error getting today's stats:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+// ✅ Search Orders
+exports.searchOrders = async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    if (!q || q.trim() === "") {
+      return res.status(400).json({ error: "Search query required" });
+    }
+
+    const results = await Order.search(q);
+    res.json(results);
+  } catch (error) {
+    console.error("Error searching orders:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 };

@@ -4,6 +4,7 @@ const router = express.Router();
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const pool = require("../db/pool");
+const { verifyToken, authorize } = require("../middleware/auth");
 
 // POST /api/auth/register
 router.post("/register", async (req, res) => {
@@ -41,9 +42,32 @@ router.post("/register", async (req, res) => {
       message: "User registered successfully",
       user: result.rows[0],
     });
+
+    // ✅ AUTO-LOGIN: Create token after successful registration
+    const token = jwt.sign(
+      {
+        id: newUser.id,
+        username: newUser.username,
+        role: newUser.role,
+      },
+      process.env.JWT_SECRET || "your-secret-key",
+      { expiresIn: "24h" }
+    );
+
+    // ✅ CONSISTENT RESPONSE FORMAT
+    res.status(201).json({
+      success: true,
+      message: "Registration successful",
+      token, // ← Auto-login token
+      user: newUser,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Server error" });
+    // ✅ CONSISTENT ERROR FORMAT
+    res.status(500).json({
+      success: false,
+      error: "Server error",
+    });
   }
 });
 
@@ -87,7 +111,9 @@ router.post("/login", async (req, res) => {
       { expiresIn: "24h" }
     );
 
+    // ✅ CONSISTENT RESPONSE FORMAT
     res.json({
+      success: true,
       message: "Login successful",
       token,
       user: {
@@ -98,7 +124,11 @@ router.post("/login", async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Server error" });
+    // ✅ CONSISTENT ERROR FORMAT
+    res.status(500).json({
+      success: false,
+      error: "Server error",
+    });
   }
 });
 
@@ -109,122 +139,186 @@ router.post("/logout", (req, res) => {
 });
 
 // GET /api/auth/profile
-router.get("/profile", async (req, res) => {
+router.get("/profile", verifyToken, async (req, res) => {
   try {
-    // Get token from header
-    const token = req.headers.authorization?.split(" ")[1];
-
-    if (!token) {
-      return res.status(401).json({ error: "No token provided" });
-    }
-
-    // Verify token
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "your-secret-key"
-    );
-
-    // Get user data
+    // Get user data (req.user.id from middleware)
     const result = await pool.query(
       "SELECT id, username, role, created_at FROM users WHERE id = $1",
-      [decoded.id]
+      [req.user.id]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({
+        success: false,
+        error: "User not found"
+      });
     }
 
-    res.json({ user: result.rows[0] });
+    // ✅ CONSISTENT RESPONSE FORMAT
+    res.json({
+      success: true,
+      message: "Profile retrieved",
+      user: result.rows[0]
+    });
+
   } catch (error) {
     console.error(error);
-    res.status(401).json({ error: "Invalid token" });
+    res.status(401).json({
+      success: false,
+      error: "Invalid token"
+    });
   }
 });
 
-// POST /api/auth/change-password
-router.post("/change-password", async (req, res) => {
+// ✅ PUT /api/auth/profile (MISSING ROUTE)
+router.put("/profile", verifyToken, async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body;
-    const token = req.headers.authorization?.split(" ")[1];
+    const { email, phone } = req.body;
+    const userId = req.user.id;
 
-    if (!token) {
-      return res.status(401).json({ error: "No token provided" });
+    // Build update query
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (email !== undefined) {
+      updates.push(`email = $${paramCount++}`);
+      values.push(email);
     }
 
-    // Verify token
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "your-secret-key"
+    if (phone !== undefined) {
+      updates.push(`phone = $${paramCount++}`);
+      values.push(phone);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: "No fields to update"
+      });
+    }
+
+    values.push(userId);
+    const query = `
+      UPDATE users 
+      SET ${updates.join(', ')}, updated_at = NOW()
+      WHERE id = $${paramCount}
+      RETURNING id, username, email, phone, role, created_at, updated_at
+    `;
+
+    const result = await pool.query(query, values);
+
+    // ✅ CONSISTENT RESPONSE FORMAT
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      user: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      error: "Server error updating profile"
+    });
+  }
+});
+
+// ✅ POST /api/auth/refresh-token (TOKEN REFRESH)
+router.post("/refresh-token", verifyToken, async (req, res) => {
+  try {
+    // Get fresh user data
+    const result = await pool.query(
+      "SELECT id, username, role FROM users WHERE id = $1",
+      [req.user.id]
     );
 
-    // Get user with password
-    const result = await pool.query("SELECT * FROM users WHERE id = $1", [
-      decoded.id,
-    ]);
-
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({
+        success: false,
+        error: "User not found"
+      });
     }
 
     const user = result.rows[0];
 
-    // Check current password
-    const validPassword = await bcrypt.compare(
-      currentPassword,
-      user.password_hash
+    // Create new token with same data
+    const newToken = jwt.sign(
+      {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+      },
+      process.env.JWT_SECRET || "your-secret-key",
+      { expiresIn: "24h" }
     );
-    if (!validPassword) {
-      return res.status(401).json({ error: "Current password is incorrect" });
-    }
 
-    // Hash new password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    // ✅ CONSISTENT RESPONSE FORMAT
+    res.json({
+      success: true,
+      message: "Token refreshed successfully",
+      token: newToken,
+      user: user
+    });
 
-    // Update password
-    await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [
-      hashedPassword,
-      user.id,
-    ]);
-
-    res.json({ message: "Password changed successfully" });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({
+      success: false,
+      error: "Server error refreshing token"
+    });
   }
 });
 
-// ✅ ADD THIS - Verify token (for frontend auth check)
-router.get("/verify", async (req, res) => {
+
+// POST /api/auth/change-password - UPDATE WITH MIDDLEWARE
+router.post("/change-password", verifyToken, async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
+    // ... [keep your existing code] ...
 
-    if (!token) {
-      return res.json({ valid: false, message: "No token provided" });
-    }
+    // ✅ CONSISTENT RESPONSE FORMAT
+    res.json({
+      success: true,
+      message: "Password changed successfully"
+    });
 
-    // Verify token
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "your-secret-key"
-    );
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      error: "Server error"
+    });
+  }
+});
 
-    // Check if user still exists
+// GET /api/auth/verify 
+router.get("/verify", verifyToken, async (req, res) => {
+  try {
     const result = await pool.query(
       "SELECT id, username, role FROM users WHERE id = $1",
-      [decoded.id]
+      [req.user.id]
     );
 
     if (result.rows.length === 0) {
-      return res.json({ valid: false, message: "User no longer exists" });
+      return res.json({
+        success: false,
+        message: "User no longer exists"
+      });
     }
 
+    // ✅ CONSISTENT RESPONSE FORMAT
     res.json({
+      success: true,
       valid: true,
-      user: result.rows[0],
+      user: result.rows[0]
     });
+
   } catch (error) {
-    res.json({ valid: false, message: "Invalid token" });
+    res.json({
+      success: false,
+      valid: false,
+      message: "Invalid token"
+    });
   }
 });
 

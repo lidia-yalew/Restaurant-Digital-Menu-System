@@ -5,11 +5,11 @@ import { apiRequest } from "./apiconfig";
 const setAuthToken = (token) => {
   localStorage.setItem("token", token);
 };
-
+//get token from localStorage
 const getAuthToken = () => {
   return localStorage.getItem("token");
 };
-
+// Remove token from localStorage
 const removeAuthToken = () => {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
@@ -53,7 +53,7 @@ export const logout = async () => {
   return { success: true, message: "Logged out successfully" };
 };
 
-// ✅ REGISTER NEW USER
+// ✅ REGISTER NEW USER (with auto-login)
 export const registerUser = async (userData) => {
   try {
     const response = await apiRequest("/auth/register", {
@@ -61,7 +61,7 @@ export const registerUser = async (userData) => {
       body: userData,
     });
 
-    // Auto-login after registration if token is returned
+    // ✅ AUTO-LOGIN: Token is now returned from register
     if (response.token) {
       setAuthToken(response.token);
       localStorage.setItem("user", JSON.stringify(response.user));
@@ -92,7 +92,7 @@ export const getProfile = async () => {
   }
 };
 
-// ✅ UPDATE USER PROFILE
+// ✅ UPDATE USER PROFILE (FIXED ROUTE)
 export const updateProfile = async (userData) => {
   try {
     const token = getAuthToken();
@@ -100,7 +100,8 @@ export const updateProfile = async (userData) => {
       throw new Error("No authentication token found");
     }
 
-    return await apiRequest("/users/me/profile", {
+    // ✅ FIXED: Now uses correct route /auth/profile
+    return await apiRequest("/auth/profile", {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -132,13 +133,17 @@ export const changePassword = async (currentPassword, newPassword) => {
   }
 };
 
-// ✅ VERIFY AUTH STATUS
+// ✅ VERIFY AUTH STATUS (UPDATED for consistent format)
 export const verifyAuth = async () => {
   try {
     const token = getAuthToken();
 
     if (!token) {
-      return { isAuthenticated: false, user: null, message: "No token found" };
+      return { 
+        isAuthenticated: false, 
+        user: null, 
+        message: "No token found" 
+      };
     }
 
     try {
@@ -148,7 +153,8 @@ export const verifyAuth = async () => {
         },
       });
 
-      if (response.valid) {
+      // ✅ UPDATED: Check response.success instead of response.valid
+      if (response.success && response.valid) {
         localStorage.setItem("user", JSON.stringify(response.user));
         return {
           isAuthenticated: true,
@@ -158,7 +164,12 @@ export const verifyAuth = async () => {
       }
 
       removeAuthToken();
-      return { isAuthenticated: false, user: null, message: "Invalid token" };
+      return { 
+        isAuthenticated: false, 
+        user: null, 
+        message: "Invalid token" 
+      };
+      
     } catch {
       // If /auth/verify doesn't exist or fails, try getProfile
       console.warn("/auth/verify failed, trying getProfile");
@@ -183,7 +194,10 @@ export const verifyAuth = async () => {
     }
 
     removeAuthToken();
-    return { isAuthenticated: false, user: null };
+    return { 
+      isAuthenticated: false, 
+      user: null 
+    };
   } catch {
     removeAuthToken();
     return {
@@ -209,7 +223,34 @@ export const getCurrentUser = () => {
     return null;
   }
 };
+// ✅ REFRESH TOKEN
+export const refreshToken = async () => {
+  try {
+    const token = getAuthToken();
+    
+    if (!token) {
+      throw new Error("No token to refresh");
+    }
 
+    const response = await apiRequest("/auth/refresh-token", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.token) {
+      setAuthToken(response.token);
+      localStorage.setItem("user", JSON.stringify(response.user));
+    }
+
+    return response;
+  } catch {
+    // If refresh fails, user needs to login again
+    removeAuthToken();
+    throw new Error("Session expired. Please login again.");
+  }
+};
 // ✅ CHECK IF USER IS ADMIN
 export const isAdmin = () => {
   const user = getCurrentUser();

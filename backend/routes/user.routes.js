@@ -1,220 +1,153 @@
-// routes/user.routes.js
 const express = require("express");
 const router = express.Router();
-const jwt = require("jsonwebtoken");
 const pool = require("../db/pool");
+const { verifyToken, authorize } = require("../middleware/auth"); 
 
-// Middleware to verify admin role
-const verifyAdmin = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({ error: "No token provided" });
-  }
-
-  try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "your-secret-key"
-    );
-
-    if (decoded.role !== "admin") {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-
-    req.user = decoded;
-    next();
-  } catch (error) {
-    res.status(401).json({ error: "Invalid token" });
-  }
-};
-
-// Middleware to verify token
-const verifyToken = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({ error: "No token provided" });
-  }
-
-  try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "your-secret-key"
-    );
-    req.user = decoded;
-    next();
-  } catch (error) {
-    res.status(401).json({ error: "Invalid token" });
-  }
-};
-
-// GET /api/users - Get all users (ADMIN ONLY)
-router.get("/", verifyAdmin, async (req, res) => {
+// ✅ GET ALL USERS (ADMIN ONLY)
+router.get("/", verifyToken, authorize("admin"), async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, username, role, created_at FROM users ORDER BY id"
+      "SELECT id, username, role, email, phone, created_at, last_login FROM users ORDER BY created_at DESC"
     );
-    res.json(result.rows);
+
+    res.json({
+      success: true,
+      data: result.rows,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({
+      success: false,
+      error: "Server error fetching users",
+    });
   }
 });
 
-// GET /api/users/:id - Get user by ID
-router.get("/:id", verifyToken, async (req, res) => {
+// ✅ UPDATE USER ROLE (ADMIN ONLY)
+router.patch("/:id/role", verifyToken, authorize("admin"), async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
+    const { role } = req.body;
 
-    // Users can only get their own profile unless they're admin
-    if (req.user.role !== "admin" && req.user.id !== userId) {
-      return res.status(403).json({ error: "Access denied" });
+    if (!["admin", "staff", "customer"].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid role",
+      });
     }
 
     const result = await pool.query(
-      "SELECT id, username, role, created_at FROM users WHERE id = $1",
+      "UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 RETURNING id, username, role",
+      [role, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "User role updated",
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      error: "Server error updating role",
+    });
+  }
+});
+
+// ✅ DELETE USER (ADMIN ONLY - with safety check)
+router.delete("/:id", verifyToken, authorize("admin"), async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    // Prevent deleting yourself
+    if (req.user.id === userId) {
+      return res.status(400).json({
+        success: false,
+        error: "Cannot delete your own account",
+      });
+    }
+
+    // Check if it's the last admin
+    const adminCount = await pool.query(
+      "SELECT COUNT(*) FROM users WHERE role = 'admin'"
+    );
+
+    const userToDelete = await pool.query(
+      "SELECT role FROM users WHERE id = $1",
+      [userId]
+    );
+
+    if (
+      userToDelete.rows[0]?.role === "admin" &&
+      parseInt(adminCount.rows[0].count) === 1
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: "Cannot delete the last admin",
+      });
+    }
+
+    const result = await pool.query(
+      "DELETE FROM users WHERE id = $1 RETURNING id, username",
       [userId]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({
+        success: false,
+        error: "User not found",
+      });
     }
 
-    res.json(result.rows[0]);
+    res.json({
+      success: true,
+      message: "User deleted successfully",
+      data: result.rows[0],
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({
+      success: false,
+      error: "Server error deleting user",
+    });
   }
 });
 
-// PUT /api/users/:id - Update user
-router.put("/:id", verifyToken, async (req, res) => {
+// ✅ GET USER STATISTICS (ADMIN ONLY)
+router.get("/stats", verifyToken, authorize("admin"), async (req, res) => {
   try {
-    const userId = parseInt(req.params.id);
-    const { username, role } = req.body;
+    const stats = await pool.query(`
+      SELECT 
+        COUNT(*) as total_users,
+        COUNT(CASE WHEN role = 'admin' THEN 1 END) as admin_count,
+        COUNT(CASE WHEN role = 'staff' THEN 1 END) as staff_count,
+        COUNT(CASE WHEN role = 'customer' THEN 1 END) as customer_count,
+        DATE(created_at) as date,
+        COUNT(*) as daily_registrations
+      FROM users
+      GROUP BY DATE(created_at)
+      ORDER BY date DESC
+      LIMIT 7
+    `);
 
-    // Users can only update their own profile unless they're admin
-    if (req.user.role !== "admin" && req.user.id !== userId) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    // Only admin can change roles
-    const updateData = { username };
-    if (req.user.role === "admin" && role) {
-      updateData.role = role;
-    }
-
-    // Check if username already exists (if changing username)
-    if (username) {
-      const existingUser = await pool.query(
-        "SELECT id FROM users WHERE username = $1 AND id != $2",
-        [username, userId]
-      );
-
-      if (existingUser.rows.length > 0) {
-        return res.status(400).json({ error: "Username already taken" });
-      }
-    }
-
-    const result = await pool.query(
-      "UPDATE users SET username = COALESCE($1, username), role = COALESCE($2, role) WHERE id = $3 RETURNING id, username, role, created_at",
-      [updateData.username, updateData.role, userId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    res.json(result.rows[0]);
+    res.json({
+      success: true,
+      data: stats.rows,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// DELETE /api/users/:id - Delete user
-router.delete("/:id", verifyToken, async (req, res) => {
-  try {
-    const userId = parseInt(req.params.id);
-
-    // Users can only delete their own account unless they're admin
-    if (req.user.role !== "admin" && req.user.id !== userId) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    // Prevent deleting the last admin
-    if (req.user.role === "admin" && req.user.id === userId) {
-      const adminCount = await pool.query(
-        "SELECT COUNT(*) FROM users WHERE role = 'admin'"
-      );
-
-      if (parseInt(adminCount.rows[0].count) === 1) {
-        return res.status(400).json({ error: "Cannot delete the last admin" });
-      }
-    }
-
-    const result = await pool.query(
-      "DELETE FROM users WHERE id = $1 RETURNING id",
-      [userId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    res.json({ message: "User deleted successfully" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// GET /api/users/me - Get current user profile
-router.get("/me/profile", verifyToken, async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT id, username, role, created_at FROM users WHERE id = $1",
-      [req.user.id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// PUT /api/users/me/profile - Update current user profile
-router.put("/me/profile", verifyToken, async (req, res) => {
-  try {
-    const { username } = req.body;
-
-    // Check if username already exists
-    if (username) {
-      const existingUser = await pool.query(
-        "SELECT id FROM users WHERE username = $1 AND id != $2",
-        [username, req.user.id]
-      );
-
-      if (existingUser.rows.length > 0) {
-        return res.status(400).json({ error: "Username already taken" });
-      }
-    }
-
-    const result = await pool.query(
-      "UPDATE users SET username = COALESCE($1, username) WHERE id = $2 RETURNING id, username, role, created_at",
-      [username, req.user.id]
-    );
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({
+      success: false,
+      error: "Server error fetching stats",
+    });
   }
 });
 

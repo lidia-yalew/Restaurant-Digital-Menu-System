@@ -1,92 +1,56 @@
-// src/api/user.api.js
 import { apiRequest } from "./apiconfig";
-import { getAuthToken } from "./authapi";
+import { getAuthToken } from "./auth.api"; // Use existing!
 
-// ✅ GET ALL USERS (ADMIN ONLY)
+// ✅ GET ALL USERS (ADMIN DASHBOARD)
 export const getAllUsers = async () => {
   const token = getAuthToken();
-  if (!token) {
-    throw new Error("Authentication required");
-  }
+  if (!token) throw new Error("Authentication required");
 
   return await apiRequest("/users", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { Authorization: `Bearer ${token}` },
   });
 };
 
-// ✅ GET USER BY ID
-export const getUserById = async (id) => {
+// ✅ UPDATE USER ROLE (ADMIN ONLY)
+export const updateUserRole = async (userId, newRole) => {
   const token = getAuthToken();
-  if (!token) {
-    throw new Error("Authentication required");
-  }
+  if (!token) throw new Error("Authentication required");
 
-  return await apiRequest(`/users/${id}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-};
-
-// ✅ UPDATE USER
-export const updateUser = async (id, userData) => {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error("Authentication required");
-  }
-
-  return await apiRequest(`/users/${id}`, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: userData,
+  return await apiRequest(`/users/${userId}/role`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+    body: { role: newRole },
   });
 };
 
 // ✅ DELETE USER (ADMIN ONLY)
-export const deleteUser = async (id) => {
+export const deleteUser = async (userId) => {
   const token = getAuthToken();
-  if (!token) {
-    throw new Error("Authentication required");
-  }
+  if (!token) throw new Error("Authentication required");
 
-  return await apiRequest(`/users/${id}`, {
+  return await apiRequest(`/users/${userId}`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { Authorization: `Bearer ${token}` },
   });
 };
 
-// ✅ GET CURRENT USER DETAILS
-export const getCurrentUserDetails = async () => {
+// ✅ GET USER STATISTICS (ADMIN DASHBOARD)
+export const getUserStats = async () => {
   const token = getAuthToken();
-  if (!token) {
-    throw new Error("Authentication required");
-  }
+  if (!token) throw new Error("Authentication required");
 
-  return await apiRequest("/users/me/profile", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  return await apiRequest("/users/stats", {
+    headers: { Authorization: `Bearer ${token}` },
   });
 };
 
-// ✅ UPDATE CURRENT USER
-export const updateCurrentUser = async (userData) => {
+// ✅ SEARCH USERS (ADMIN ONLY)
+export const searchUsers = async (searchTerm) => {
   const token = getAuthToken();
-  if (!token) {
-    throw new Error("Authentication required");
-  }
+  if (!token) throw new Error("Authentication required");
 
-  return await apiRequest("/users/me/profile", {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: userData,
+  return await apiRequest(`/users/search?q=${encodeURIComponent(searchTerm)}`, {
+    headers: { Authorization: `Bearer ${token}` },
   });
 };
+

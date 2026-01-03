@@ -2,12 +2,10 @@ import { CONFIG } from "../config/Constant";
 
 const API_BASE_URL = CONFIG.API_BASE_URL;
 
-console.log("📡 Using hardcoded API URL:", API_BASE_URL);
 
 export const apiRequest = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
 
-  console.log("🌐 Making request to:", url);
 
   const defaultOptions = {
     headers: {

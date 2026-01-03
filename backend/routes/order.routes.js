@@ -1,26 +1,81 @@
 const express = require("express");
 const router = express.Router();
 const orderController = require("../Controllers/order.controller");
+const { verifyToken, authorize } = require("../middleware/auth");
 
-// Basic CRUD routes
-router.get("/", orderController.getAllOrders);
-router.get("/:id", orderController.getOrderById);
-router.post("/", orderController.createOrder);
-router.put("/:id", orderController.updateOrder);
-router.delete("/:id", orderController.deleteOrder);
 
-// ✅ ADD THESE NEW ROUTES:
+// Security applied to routes:
+router.get(
+  "/",
+  verifyToken,
+  authorize("admin", "staff"),
+  orderController.getAllOrders
+);
+router.get("/:id", verifyToken, orderController.getOrderById); // All authenticated users
+router.post("/", orderController.createOrder); // Public - customers can order
 
-// Get orders by status
-router.get("/status/:status", orderController.getOrdersByStatus);
+// UPDATE: Customer only, 5-minute limit
+router.put(
+  "/:id",
+  verifyToken,
+  authorize("customer"),
+  orderController.updateOrder
+);
 
-// Get orders by table number
-router.get("/table/:tableNumber", orderController.getOrdersByTable);
+// DELETE: Customer only, 5-minute limit
+router.delete(
+  "/:id",
+  verifyToken,
+  authorize("customer"),
+  orderController.deleteOrder
+);
 
-// Update order status only (PATCH for partial update)
-router.patch("/:id/status", orderController.updateOrderStatus);
+// Get orders by status: Staff/Admin only
+router.get(
+  "/status/:status",
+  verifyToken,
+  authorize("admin", "staff"),
+  orderController.getOrdersByStatus
+);
+
+// Get orders by table number: Staff/Admin only
+router.get(
+  "/table/:tableNumber",
+  verifyToken,
+  authorize("admin", "staff"),
+  orderController.getOrdersByTable
+);
+
+// Update order status: Staff/Admin ONLY
+router.patch(
+  "/:id/status",
+  verifyToken,
+  authorize("staff", "admin"),
+  orderController.updateOrderStatus
+);
 
 // Get kitchen queue
-router.get("/kitchen/queue", orderController.getKitchenQueue);
+router.get(
+  "/kitchen/queue",
+  verifyToken,
+  authorize("kitchen"),
+  orderController.getKitchenQueue
+);
+
+// Search orders
+router.get(
+  "/search",
+  verifyToken,
+  authorize("admin", "staff"),
+  orderController.searchOrders
+);
+
+// Get order statistics
+router.get(
+  "/stats/today",
+  verifyToken,
+  authorize("admin",),
+  orderController.getTodayStats
+);
 
 module.exports = router;
