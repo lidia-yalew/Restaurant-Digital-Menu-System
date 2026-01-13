@@ -1,5 +1,98 @@
-body{
-    font-family: 'Times New Roman', Times, serif;
-    top: 0;
-    overflow-x: hidden;
+@import "tailwindcss";
+
+/* Your theme system - UPDATED WITH SHADOWS */
+:root {
+  --amber-light: #059669;
+  --success-light: #D97706;
+  --cream-light: #e0dfdc;
+  --amber-dark: #14cc8f;
+  --success-dark: #F59E0B;
+  --cream-dark: #1F2937;
+  
+  /* Shadow variables */
+  --shadow-glow: 0 0 20px 0 rgba(34, 197, 94, 0.5);
+  --shadow-subtle: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+:root {
+  --color-primary: var(--amber-light);
+  --color-secondary: var(--success-light);
+  --color-bg: var(--cream-light);
+  --color-text: #1F2937;
+  --color-card: #FFFFFF;
+  --color-border: #E5E7EB;
+  --shadow-button: var(--shadow-glow);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-primary: var(--amber-dark);
+    --color-secondary: var(--success-dark);
+    --color-bg: var(--cream-dark);
+    --color-text: #F9FAFB;
+    --color-card: #111827;
+    --color-border: #374151;
+    --shadow-button: 
+      0 0 15px 0 rgba(34, 197, 94, 0.3),
+      0 0 5px 0 rgba(255, 255, 255, 0.1);
+  }
+}
+
+[data-theme="dark"] {
+  --color-primary: var(--amber-dark);
+  --color-secondary: var(--success-dark);
+  --color-bg: var(--cream-dark);
+  --color-text: #F9FAFB;
+  --color-card: #111827;
+  --color-border: #374151;
+  --shadow-button: 
+    0 0 15px 0 rgba(34, 197, 94, 0.3),
+    0 0 5px 0 rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] {
+  --color-primary: var(--amber-light);
+  --color-secondary: var(--success-light);
+  --color-bg: var(--cream-light);
+  --color-text: #1F2937;
+  --color-card: #FFFFFF;
+  --color-border: #E5E7EB;
+  --shadow-button: var(--shadow-glow);
+}
+
+@theme {
+  --color-primary: var(--color-primary);
+  --color-secondary: var(--color-secondary);
+  --color-bg: var(--color-bg);
+  --color-text: var(--color-text);
+  --color-card: var(--color-card);
+  --color-border: var(--color-border);
+  --shadow-button: var(--shadow-button);
+}
+
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: system-ui, sans-serif;
+  margin: 0;
+}
+
+.links:hover {
+  background-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+/* Theme-aware button classes */
+.btn-theme-shadow {
+  box-shadow: var(--shadow-button);
+}
+
+.btn-theme-shadow:hover {
+  box-shadow: 
+    var(--shadow-button),
+    0 0 30px 0 rgba(34, 197, 94, 0.7);
 }
