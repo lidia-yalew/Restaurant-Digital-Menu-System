@@ -8,7 +8,7 @@ const WetPaintButton = ({ children, className = "" }) => {
         "--button-glow": "rgba(34, 197, 94, 0.5)",
         "--button-glow-dark": "rgba(34, 197, 94, 0.3)",
       }}
-      className={`group relative rounded bg-green-600 px-8 py-3 font-semibold text-white transition-all hover:bg-card hover:text-text text-sm mb-5 shadow-[0_0_20px_0_var(--button-glow)] dark:shadow-[0_0_15px_0_var(--button-glow-dark)] hover:shadow-[0_0_30px_0_var(--button-glow)] dark:hover:shadow-[0_0_25px_0_var(--button-glow-dark)] hover:scale-[1.02] active:scale-95 ${className}`}
+      className={`group relative rounded bg-green-600 px-8 py-2 font-semibold text-white transition-all hover:bg-card hover:text-text text-sm mb-5 shadow-[0_0_20px_0_var(--button-glow)] dark:shadow-[0_0_15px_0_var(--button-glow-dark)] hover:shadow-[0_0_30px_0_var(--button-glow)] dark:hover:shadow-[0_0_25px_0_var(--button-glow-dark)] hover:scale-[1.02] active:scale-95 ${className}`}
     >
       {children}
       <Drip left="10%" height={24} delay={0.5} />

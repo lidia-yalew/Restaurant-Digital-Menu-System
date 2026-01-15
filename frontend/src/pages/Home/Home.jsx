@@ -1,56 +1,12 @@
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import Nav from "../../layout/Nav.jsx";
+import { motion } from "framer-motion";
 import Baner from "./Baner.jsx";
 import WetPaintButton from "../../componests/UI/Button.jsx";
+import Menu from "./../client/Menu.jsx";
 
 function Home() {
-  const [theme, setTheme] = useState("light");
-
-  // Load saved theme or detect OS preference
-  useEffect(() => {
-    const saved = localStorage.getItem("theme");
-
-    // No need for setTimeout - it can cause flash
-    if (saved) {
-      setTheme(saved);
-      document.documentElement.setAttribute("data-theme", saved);
-    } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      setTheme("dark");
-      document.documentElement.setAttribute("data-theme", "dark");
-    }
-  }, []);
-
-  // Toggle theme
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    document.documentElement.setAttribute("data-theme", newTheme);
-    localStorage.setItem("theme", newTheme);
-  };
-
+ 
   return (
-    <div className="min-h-screen bg-bg text-3xl p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-      >
-        {/* Theme Toggle Button */}
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
-          <div className="bg-card backdrop-blur-md border border-white/20 rounded-full px-12 py-2 shadow-xl">
-            <Nav />
-          </div>
-        </div>
-      </motion.div>
-
-      <button
-        onClick={toggleTheme}
-        className="fixed top-4 right-4 w-12 h-12 rounded-full bg-primary text-white text-xl z-50" // Changed to z-50
-      >
-        {theme === "light" ? "🌙" : "☀️"}
-      </button>
-
+    <div className="min-h-screen bg-bg text-3xl p-4 lg:mt-[-40px] mt-[-80px]">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -59,23 +15,30 @@ function Home() {
         <div className="mt-[60px] md:mt-[-10px]">
           <Baner />
         </div>
+      </motion.div>
 
-        <div className="absolute bottom-20 left-10 max-w-sm">
-          {/* Glass card content goes here */}
+      <div className="absolute hidden md:block right-4 md:bottom-8 md:left-8 lg:bottom-3 lg:left-10 lg:right-auto max-w-sm md:max-w-md">
+        <div className="backdrop-blur-sm bg-black/50 border border-white/20 rounded-2xl p-2">
+          <h2 className=" text-center font-serif italic  md:text-xl lg:text-1xl font-bold text-green-400 mb-2 text-sm ">
+            Taste That Tells A Story
+          </h2>
+          <div className="h-0.5 w-12 md:w-24 lg:w-36  bg-green-400/80 m-auto my-2 rounded-full"></div>
 
-          <div className="backdrop-blur-sm bg-black/50 border border-white/20 rounded-2xl p-2">
-            {/* Content goes here */}
-            <h2 className=" text-center font-serif italic text-lg md:text-xl lg:text-1xl font-bold text-white  mb-2">
-              Taste That Tells
-              <span className="">A Story</span>
-            </h2>
-            <p className="text-green-500 mb-4 text-sm font-bold">
-              Every dish is a chapter. Come write yours today.
-            </p>
-            <WetPaintButton>VIEW MENU →</WetPaintButton>
+          {/* Description */}
+          <p className="text-white mb-4 text-xs lg:text-sm md:text-base font-medium text-center md:text-left">
+            Every dish is a chapter. Come write yours today.
+          </p>
+
+          {/* Button with icon */}
+
+          <div className="flex justify-center">
+            <WetPaintButton className="text-xs md:text-base px-6 md:px-8 md:py-2">
+              VIEW MENU →
+            </WetPaintButton>
           </div>
         </div>
-      </motion.div>
+      </div>
+      <Menu />
     </div>
   );
 }

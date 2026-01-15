@@ -28,6 +28,7 @@ function Banner() {
           </div>
         ))}
       </Carousel>
+      
     </div>
   );
 }
