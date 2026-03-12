@@ -60,7 +60,6 @@ function Logo({ onEnter }) {
             className="mt-8 md:mt-12 space-y-4"
           >
             <div className="w-24 md:w-32 h-1 bg-green-500 mx-auto"></div>
-          
           </motion.div>
         </div>
 
@@ -77,7 +76,6 @@ function Logo({ onEnter }) {
               alt="Restaurant of Lidia"
               className="rounded-2xl md:rounded-3xl shadow-[0_0_20px_0_rgba(34,197,94,0.5)] w-4/5 md:w-full max-w-md mx-auto"
             />
-           
           </motion.div>
         </div>
       </div>

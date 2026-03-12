@@ -4,6 +4,7 @@ import Logo from "./pages/Home/Logo";
 import Home from "./pages/Home/Home";
 import Layout from "./layout/Layout.jsx";
 import Menu from "./pages/client/Menu.jsx";
+import Login from "./pages/client/Login.jsx";
 
 function App() {
   const [showHome, setShowHome] = useState(false);
@@ -23,6 +24,7 @@ function App() {
               }
             />
             <Route path="menu" element={<Menu />} />
+            <Route path="login" element={<Login />} />
           </Route>
         </Routes>
       ) : (

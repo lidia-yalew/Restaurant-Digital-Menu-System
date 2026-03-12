@@ -6,13 +6,13 @@ import Menu from "./../client/Menu.jsx";
 function Home() {
  
   return (
-    <div className="min-h-screen bg-bg text-3xl p-4 lg:mt-[-40px] mt-[-80px]">
+    <div className="min-h-screen bg-bg text-3xl p-4 ">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.9, delay: 0.2 }} // Added delay
       >
-        <div className="mt-[60px] md:mt-[-10px]">
+        <div className="">
           <Baner />
         </div>
       </motion.div>
