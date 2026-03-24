@@ -5,6 +5,9 @@ import Home from "./pages/Home/Home";
 import Layout from "./layout/Layout.jsx";
 import Menu from "./pages/client/Menu.jsx";
 import Login from "./pages/client/Login.jsx";
+import Register from "./pages/client/Register.jsx";
+import Aboutme from "./pages/client/Aboutme.jsx";
+import Menuuu from "./pages/client/Menuuu.jsx";
 
 function App() {
   const [showHome, setShowHome] = useState(false);
@@ -25,6 +28,10 @@ function App() {
             />
             <Route path="menu" element={<Menu />} />
             <Route path="login" element={<Login />} />
+            <Route path="/register" element={<Register/>}/>
+            <Route path="/aboutme" element={<Aboutme/>}/>
+            <Route path="/reserve" element={<Menuuu/>}/>
+            
           </Route>
         </Routes>
       ) : (

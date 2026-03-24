@@ -18,20 +18,43 @@ const removeAuthToken = () => {
 // ✅ USER LOGIN
 export const login = async (username, password) => {
   try {
+    console.log("Attempting login for:", username);
+    
     const response = await apiRequest("/auth/login", {
       method: "POST",
-      body: { username, password },
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
     });
 
-    if (response.token) {
-      setAuthToken(response.token);
-      localStorage.setItem("user", JSON.stringify(response.user));
-    }
+    console.log("Login response received:", response);
 
-    return response;
+    // Check if login was successful
+    if (response.success && response.token) {
+      // Store token and user data
+      localStorage.setItem("token", response.token);
+      localStorage.setItem("user", JSON.stringify(response.user));
+      
+      // Optional: Set token in default headers for future requests
+      // You can add this to your apiRequest function
+      
+      return {
+        success: true,
+        user: response.user,
+        token: response.token,
+      };
+    } else {
+      // Handle unsuccessful login
+      throw new Error(response.error || "Login failed");
+    }
   } catch (error) {
-    removeAuthToken();
-    throw new Error(error.message || "Login failed");
+    console.error("Login error details:", error);
+    
+    // Return a consistent error format
+    throw new Error(
+      error.response?.error || 
+      error.message || 
+      "Invalid username or password"
+    );
   }
 };
 
@@ -56,19 +79,19 @@ export const logout = async () => {
 // ✅ REGISTER NEW USER (with auto-login)
 export const registerUser = async (userData) => {
   try {
+    console.log("Sending registration request to:", "/api/user");
+    console.log("With data:", userData);
+    
     const response = await apiRequest("/auth/register", {
       method: "POST",
-      body: userData,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(userData),
     });
 
-    // ✅ AUTO-LOGIN: Token is now returned from register
-    if (response.token) {
-      setAuthToken(response.token);
-      localStorage.setItem("user", JSON.stringify(response.user));
-    }
-
+    console.log("Registration response:", response);
     return response;
   } catch (error) {
+    console.error("Registration error details:", error);
     throw new Error(error.message || "Registration failed");
   }
 };

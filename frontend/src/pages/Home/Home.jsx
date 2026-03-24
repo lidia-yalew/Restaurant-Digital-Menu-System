@@ -6,7 +6,7 @@ import Menu from "./../client/Menu.jsx";
 function Home() {
  
   return (
-    <div className="min-h-screen bg-bg text-3xl p-4 ">
+    <div className="min-h-screen bg-bg text-3xl p-4 lg:mt-16 mt-12">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}

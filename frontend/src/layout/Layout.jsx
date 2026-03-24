@@ -7,7 +7,7 @@ function Layout() {
       <div>
         <Nav />
       </div>
-      <div className='lg:mt-16 mt-12'>
+      <div className=''>
         <Outlet />
       </div>
     </div>

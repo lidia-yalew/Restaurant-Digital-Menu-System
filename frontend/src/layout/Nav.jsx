@@ -95,7 +95,7 @@ function Nav() {
   const navItems = useMemo(
     () => [
       { name: "Home", path: "/", id: 1 },
-      { name: "About", path: "/about", id: 2 },
+      { name: "About", path: "/aboutme", id: 2 },
       { name: "Menu", path: "/menu", id: 3 },
       { name: "Reserve", path: "/reserve", id: 4 },
       { name: "Login", path: "/login", id: 5 },
@@ -131,7 +131,7 @@ function Nav() {
 
   return (
     <div className="fixed top-2 sm:top-4 left-1/2 transform -translate-x-1/2 z-50 w-[95%] max-w-3xl">
-      <div className="bg-card/40 backdrop-blur-sm border border-white/20 rounded-full px-4 sm:px-8 md:px-12 py-2 sm:py-2.5 shadow-2xl relative">
+      <div className="bg-card/80 backdrop-blur-sm border border-white/20 rounded-full px-4 sm:px-8 md:px-12 py-2 sm:py-2.5 shadow-2xl relative">
         <div className="flex items-center justify-between sm:justify-center space-x-1 sm:space-x-3 md:space-x-8 lg:space-x-12 px-4 sm:px-2">
           {navItems.map(
             (item) =>
