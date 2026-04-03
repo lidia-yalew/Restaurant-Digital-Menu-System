@@ -198,99 +198,57 @@ class Menu {
   }
 
   // ✅ CREATE MENU ITEM WITH VALIDATION
-  static async create(itemData) {
-    try {
-      // Default values
-      const defaults = {
-        is_available: true,
-        ingredients: [],
-        preparation_time: 15, // minutes
-        calories: null,
-        popularity_score: 0,
-      };
+static async create(menuData) {
+  const {
+    name,
+    description,
+    price,
+    category,
+    image_url,
+    is_available,
+    preparation_time = 15  // Default value
+  } = menuData;
 
-      const data = { ...defaults, ...itemData };
+  const result = await pool.query(
+    `INSERT INTO menu_items 
+     (name, description, price, category, image_url, is_available, preparation_time) 
+     VALUES ($1, $2, $3, $4, $5, $6, $7) 
+     RETURNING *`,
+    [name, description, price, category, image_url, is_available, preparation_time]
+  );
+  
+  return result.rows[0];
+}
 
-      const result = await pool.query(
-        `
-        INSERT INTO menu_items (
-          name, description, price, category, image_url,
-          is_available, ingredients, preparation_time, calories
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        RETURNING *
-      `,
-        [
-          data.name,
-          data.description || "",
-          data.price,
-          data.category,
-          data.image_url || "/images/default.jpg",
-          data.is_available,
-          JSON.stringify(data.ingredients || []),
-          data.preparation_time,
-          data.calories,
-        ]
-      );
+// Update update method
+static async update(id, updates) {
+  const {
+    name,
+    description,
+    price,
+    category,
+    image_url,
+    is_available,
+    preparation_time
+  } = updates;
 
-      return result.rows[0];
-    } catch (error) {
-      console.error("Error creating menu item:", error);
-      throw error;
-    }
-  }
-
-  // ✅ UPDATE MENU ITEM
-  static async update(id, updates) {
-    try {
-      // Build dynamic update query
-      const allowedFields = [
-        "name",
-        "description",
-        "price",
-        "category",
-        "image_url",
-        "is_available",
-        "ingredients",
-        "preparation_time",
-        "calories",
-      ];
-
-      const updateFields = [];
-      const values = [];
-      let paramCount = 1;
-
-      Object.keys(updates).forEach((key) => {
-        if (allowedFields.includes(key)) {
-          updateFields.push(`${key} = $${paramCount}`);
-          values.push(
-            key === "ingredients" ? JSON.stringify(updates[key]) : updates[key]
-          );
-          paramCount++;
-        }
-      });
-
-      if (updateFields.length === 0) {
-        throw new Error("No valid fields to update");
-      }
-
-      // Add updated_at timestamp
-      updateFields.push("updated_at = NOW()");
-
-      values.push(id);
-      const query = `
-        UPDATE menu_items 
-        SET ${updateFields.join(", ")}
-        WHERE id = $${paramCount}
-        RETURNING *
-      `;
-
-      const result = await pool.query(query, values);
-      return result.rows[0];
-    } catch (error) {
-      console.error("Error updating menu item:", error);
-      throw error;
-    }
-  }
+  const result = await pool.query(
+    `UPDATE menu_items 
+     SET name = $1, 
+         description = $2, 
+         price = $3, 
+         category = $4, 
+         image_url = $5, 
+         is_available = $6,
+         preparation_time = $7,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = $8 
+     RETURNING *`,
+    [name, description, price, category, image_url, is_available, preparation_time, id]
+  );
+  
+  return result.rows[0];
+}
 
   // ✅ GET ITEMS BY CATEGORY
   static async findByCategory(category, availableOnly = true) {

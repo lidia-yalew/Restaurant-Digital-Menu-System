@@ -11,12 +11,15 @@ export const useCreate = (createServiceFunction) => {
       const result = await createServiceFunction(formData);
       return result;
     } catch (err) {
-      setError(err.message);
-      throw err;
+      const errorMessage = err.message || 'An error occurred during creation';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  return { handleCreate, loading, error };
+  const resetError = () => setError(null);
+
+  return { handleCreate, loading, error, resetError };
 };

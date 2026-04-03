@@ -1,59 +1,84 @@
-import * as AboutAPI from "../API/menuapi";
+import * as menuAPI from "../API/menuapi";
 import { formatData } from "../utils/formatter";
 import { validateFields } from "../utils/validator";
+import { MENU_CATEGORIES } from "../pages/Manager/Menu/menuConstants";
 
-
-export const createMenuItemService = async (data) => {
-  validateFields(data, ["name", "price", "category"]);
-
-  const formatted = formatData({
-    ...data,
-    price: Number(data.price),
-    is_available: data.is_available !== false,
-    image_url: data.image_url || "/images/default.jpg",
-    ingredients: data.ingredients || [],
-  });
-
-  return AboutAPI.createMenuItemAPI(formatted);
+// Fetch categories - returns array of category strings
+export const fetchMenuCategoriesService = async () => {
+  try {
+    const response = await menuAPI.getMenuCategories();
+    console.log('Categories API response:', response);
+    
+    // Extract array from response safely
+    if (Array.isArray(response)) {
+      return response;
+    }
+    if (response?.data && Array.isArray(response.data)) {
+      if (response.data.length > 0 && typeof response.data[0] === 'object') {
+        return response.data.map(cat => cat.category || cat.name || cat);
+      }
+      return response.data;
+    }
+    if (response?.categories && Array.isArray(response.categories)) {
+      return response.categories;
+    }
+    
+    return MENU_CATEGORIES;
+  } catch (error) {
+    console.error('Error in fetchMenuCategoriesService:', error);
+    return MENU_CATEGORIES;
+  }
 };
 
-export async function fetchMenuService() {
-  return AboutAPI.getMenuItems()
-}
+// Create menu item
+export const createMenuItemService = async (data) => {
+  try {
+    validateFields(data, ["name", "price", "category"]);
+    
+    const formattedData = formatData({
+      ...data,
+      price: Number(data.price),
+      preparation_time: Number(data.preparation_time) || 15,
+      is_available: data.is_available !== false,
+      image_url: data.image_url || ""
+    });
+    
+    return await menuAPI.createMenuItemAPI(formattedData);
+  } catch (error) {
+    console.error('Error in createMenuItemService:', error);
+    throw error;
+  }
+};
 
-export async function fetchMenuByIdService(id) {
-  return AboutAPI.getMenuItemById(id);
-}
+// Get menu items
+export const fetchMenuService = async () => {
+  try {
+    const response = await menuAPI.getMenuItems();
+    
+    if (Array.isArray(response)) return response;
+    if (response?.data?.items && Array.isArray(response.data.items)) return response.data.items;
+    if (response?.items && Array.isArray(response.items)) return response.items;
+    
+    return [];
+  } catch (error) {
+    console.error('Error in fetchMenuService:', error);
+    return [];
+  }
+};
 
-export async function fetchMenuCategoriesService() {
-  return AboutAPI.getMenuCategories();
-}
+export const fetchMenuByIdService = async (id) => {
+  return await menuAPI.getMenuItemById(id);
+};
 
-export async function fetchMenuByCategoryService(category, filters) {
-  return AboutAPI.getMenuItemsByCategory(category, filters);
-}
+export const updateMenuService = async (id, data) => {
+  const formattedData = formatData(data);
+  return await menuAPI.updateMenuItemAPI(id, formattedData);
+};
 
-export async function searchMenuService(query, filters) {
-  return AboutAPI.searchMenuItems(query, filters);
-}
-export async function updateMenuService(id,data) {
-    const formatData = formatData(data);
-  return AboutAPI.updateMenuItemAPI(id, formatData);
-}
+export const deleteMenuService = async (id) => {
+  return await menuAPI.deleteMenuItem(id);
+};
 
-export async function deleteMenuService(id) {
-  return AboutAPI.deleteMenuItem(id);
-}
-
-
-export async function toggleMenuItemAvailabilityService(id, currentStatus) {
-  return AboutAPI.toggleMenuItemAvailability(id, currentStatus);
-}
-
-export async function bulkUpdateAvailabilityService(ids, status) {
-  return AboutAPI.bulkUpdateAvailability(ids, status);
-}
-
-export async function uploadMenuItemImageService(file) {
-  return AboutAPI.uploadMenuItemImage(file);
-}
+export const toggleMenuItemAvailabilityService = async (id, currentStatus) => {
+  return await menuAPI.toggleMenuItemAvailability(id, currentStatus);
+};
