@@ -18,24 +18,15 @@ const removeAuthToken = () => {
 // ✅ USER LOGIN
 export const login = async (username, password) => {
   try {
-    console.log("Attempting login for:", username);
-    
     const response = await apiRequest("/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
     });
 
-    console.log("Login response received:", response);
-
-    // Check if login was successful
     if (response.success && response.token) {
-      // Store token and user data
       localStorage.setItem("token", response.token);
       localStorage.setItem("user", JSON.stringify(response.user));
-      
-      // Optional: Set token in default headers for future requests
-      // You can add this to your apiRequest function
       
       return {
         success: true,
@@ -43,18 +34,11 @@ export const login = async (username, password) => {
         token: response.token,
       };
     } else {
-      // Handle unsuccessful login
       throw new Error(response.error || "Login failed");
     }
   } catch (error) {
     console.error("Login error details:", error);
-    
-    // Return a consistent error format
-    throw new Error(
-      error.response?.error || 
-      error.message || 
-      "Invalid username or password"
-    );
+    throw new Error(error.response?.error || error.message || "Invalid username or password");
   }
 };
 

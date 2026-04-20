@@ -2,10 +2,8 @@ import { CONFIG } from "../config/Constant";
 
 const API_BASE_URL = CONFIG.API_BASE_URL;
 
-
 export const apiRequest = async (endpoint, options = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
-
 
   const defaultOptions = {
     headers: {
@@ -22,7 +20,12 @@ export const apiRequest = async (endpoint, options = {}) => {
     },
   };
 
-  if (config.body && typeof config.body !== "string") {
+  // Don't set Content-Type for FormData
+  if (config.body instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
+
+  if (config.body && typeof config.body !== "string" && !(config.body instanceof FormData)) {
     config.body = JSON.stringify(config.body);
   }
 
@@ -38,9 +41,7 @@ export const apiRequest = async (endpoint, options = {}) => {
     }
 
     if (!response.ok) {
-      const error = new Error(
-        data.error || data.message || `HTTP error! status: ${response.status}`
-      );
+      const error = new Error(data.error || data.message || `HTTP error! status: ${response.status}`);
       error.status = response.status;
       error.response = data;
       throw error;
@@ -48,10 +49,7 @@ export const apiRequest = async (endpoint, options = {}) => {
 
     return data;
   } catch (error) {
-    console.error("❌ API request failed:", {
-      url,
-      error: error.message,
-    });
+    console.error("❌ API request failed:", { url, error: error.message });
     throw error;
   }
 };
@@ -62,6 +60,11 @@ export const authRequest = async (endpoint, options = {}) => {
     ...options.headers,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
+  
+  if (options.body instanceof FormData) {
+    delete headers["Content-Type"];
+  }
+  
   return apiRequest(endpoint, { ...options, headers });
 };
 

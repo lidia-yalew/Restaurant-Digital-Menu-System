@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from 'react-router-dom';
 import img2 from "../../assets/IMG/imag2.png";
 import { 
   FaSearch, 
@@ -7,50 +8,267 @@ import {
   FaUtensils,
   FaCoffee,
   FaIceCream,
-  FaWineGlassAlt,
   FaTimes,
   FaPlus,
-  FaMinus
+  FaMinus,
+  FaFlag,
+  FaGlobe,
+  FaBreadSlice,
+  FaClock,
+  FaSpinner,
+  FaHeart,
+  FaRegHeart,
+  FaImage
 } from "react-icons/fa";
+import { fetchMenuService, fetchMenuCategoriesService } from '../../service/menuservice';
+import { 
+  CATEGORY_DISPLAY_NAMES, 
+  CATEGORY_SHORT_NAMES,
+  CATEGORY_ICON_COLORS,
+  CATEGORY_ORDER
+} from '../Manager/Menu/menuConstants';
 
-function Menu() {
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [searchTerm, setSearchTerm] = useState("");
+// Helper to get category icon
+const getCategoryIcon = (category) => {
+  const colorClass = CATEGORY_ICON_COLORS[category] || 'text-gray-400';
+  switch(category) {
+    case 'ethiopian_main': return <FaFlag className={colorClass} />;
+    case 'international_main': return <FaGlobe className={colorClass} />;
+    case 'appetizer': return <FaUtensils className={colorClass} />;
+    case 'bread': return <FaBreadSlice className={colorClass} />;
+    case 'dessert': return <FaIceCream className={colorClass} />;
+    case 'drink': return <FaCoffee className={colorClass} />;
+    default: return <FaUtensils className="text-gray-400" />;
+  }
+};
 
-  // Sample menu data (you'll replace this with real data later)
-  const menuItems = [
-    { id: 1, name: "Greek Salad", category: "Appetizers", price: 25 },
-    { id: 2, name: "Lavash Roll", category: "Main Course", price: 40 },
-    { id: 3, name: "Butternut Soup", category: "Soups", price: 10 },
-    { id: 4, name: "Mango Smoothie", category: "Drinks", price: 8 },
-    { id: 5, name: "Chocolate Cake", category: "Desserts", price: 12 },
-  ];
+const getImageUrl = (imageUrl) => {
+  if (!imageUrl) return null;
+  if (imageUrl.startsWith('http')) return imageUrl;
+  if (imageUrl.startsWith('/uploads')) {
+    return `http://localhost:1994${imageUrl}`;
+  }
+  return imageUrl;
+};
 
-  // Get unique categories
-  const categories = ["all", ...new Set(menuItems.map(item => item.category))];
+const ClientMenu = () => {
+  const navigate = useNavigate();
+  const [menuItems, setMenuItems] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [cart, setCart] = useState([]);
+  const [showCart, setShowCart] = useState(false);
+  const [favorites, setFavorites] = useState([]);
 
-  // Get category icon
-  const getCategoryIcon = (category) => {
-    switch(category) {
-      case "Appetizers": return <FaUtensils className="text-sm" />;
-      case "Main Course": return <FaUtensils className="text-sm" />;
-      case "Desserts": return <FaIceCream className="text-sm" />;
-      case "Drinks": return <FaCoffee className="text-sm" />;
-      case "Soups": return <FaUtensils className="text-sm" />;
-      default: return <FaUtensils className="text-sm" />;
+  // Fetch menu items
+  const fetchMenuItems = async () => {
+    setLoading(true);
+    try {
+      const items = await fetchMenuService();
+      setMenuItems(items);
+    } catch (error) {
+      console.error('Error fetching menu:', error);
+      setMenuItems([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Filter items based on selected category
+  // Fetch categories
+  const fetchCategories = async () => {
+    try {
+      const cats = await fetchMenuCategoriesService();
+      setCategories(cats);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      setCategories(CATEGORY_ORDER);
+    }
+  };
+
+  useEffect(() => {
+    fetchMenuItems();
+    fetchCategories();
+  }, []);
+
+  // Filter menu items (only show available items)
   const filteredItems = menuItems.filter(item => {
-    if (selectedCategory === "all") return true;
-    return item.category === selectedCategory;
+    if (!item.is_available) return false;
+    const matchesSearch = (item.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (item.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+    return matchesSearch && matchesCategory;
   });
 
+  // Add to cart
+  const addToCart = (item) => {
+    const existingItem = cart.find(cartItem => cartItem.id === item.id);
+    if (existingItem) {
+      setCart(cart.map(cartItem =>
+        cartItem.id === item.id
+          ? { ...cartItem, quantity: cartItem.quantity + 1 }
+          : cartItem
+      ));
+    } else {
+      setCart([...cart, { ...item, quantity: 1 }]);
+    }
+  };
+
+  // Remove from cart
+  const removeFromCart = (itemId) => {
+    setCart(cart.filter(item => item.id !== itemId));
+  };
+
+  // Update quantity
+  const updateQuantity = (itemId, newQuantity) => {
+    if (newQuantity <= 0) {
+      removeFromCart(itemId);
+    } else {
+      setCart(cart.map(item =>
+        item.id === itemId ? { ...item, quantity: newQuantity } : item
+      ));
+    }
+  };
+
+  // Calculate total
+  const calculateTotal = () => {
+    return cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
+  // Toggle favorite
+  const toggleFavorite = (itemId) => {
+    setFavorites(prev => 
+      prev.includes(itemId) 
+        ? prev.filter(id => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
+  // Place order
+  const placeOrder = () => {
+    if (cart.length === 0) return;
+    navigate('/checkout', { state: { cart, total: calculateTotal() } });
+  };
+
+  // Group items by category
+  const getGroupedItems = () => {
+    if (selectedCategory !== 'all') {
+      const items = filteredItems;
+      if (items.length === 0) return [];
+      return [{
+        category: selectedCategory,
+        displayName: CATEGORY_DISPLAY_NAMES[selectedCategory] || selectedCategory,
+        icon: getCategoryIcon(selectedCategory),
+        items: items
+      }];
+    }
+
+    return CATEGORY_ORDER
+      .map(cat => ({
+        category: cat,
+        displayName: CATEGORY_DISPLAY_NAMES[cat],
+        icon: getCategoryIcon(cat),
+        items: filteredItems.filter(item => item.category === cat)
+      }))
+      .filter(group => group.items.length > 0);
+  };
+
+  const groupedItems = getGroupedItems();
+
+  // Render item card - Proper Flex Layout
+  const renderItemCard = (item, index) => (
+    <motion.div
+      key={item.id || index}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.03 }}
+      className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700 hover:shadow-lg hover:transform hover:scale-[1.02] transition-all duration-300 overflow-hidden"
+    >
+      <div className="flex flex-row items-stretch">
+        {/* Image Section - Fixed width on left */}
+        <div className="w-28 h-28 md:w-32 md:h-32 flex-shrink-0 bg-gray-700 relative">
+          {item.image_url ? (
+            <img
+              src={getImageUrl(item.image_url)}
+              alt={item.name}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                const parent = e.target.parentElement;
+                if (parent) {
+                  parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg class="w-8 h-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>';
+                }
+              }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <FaImage className="w-6 h-6 md:w-8 md:h-8 text-gray-500" />
+            </div>
+          )}
+          
+          {/* Favorite Button */}
+          <button
+            onClick={() => toggleFavorite(item.id)}
+            className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full hover:bg-black/70 transition-all"
+          >
+            {favorites.includes(item.id) ? (
+              <FaHeart className="text-red-500 text-sm" />
+            ) : (
+              <FaRegHeart className="text-white text-sm" />
+            )}
+          </button>
+          
+          {/* Out of Stock Badge */}
+          {!item.is_available && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">Out</span>
+            </div>
+          )}
+        </div>
+
+        {/* Content Section - Takes remaining space */}
+        <div className="flex-1 p-3 md:p-4 bg-card">
+          <div className="flex flex-row justify-between items-start gap-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm md:text-base font-semibold text-primary-800 truncate">{item.name}</h3>
+              <p className="text-gray-400 text-xs md:text-sm mt-1 line-clamp-2 break-words">
+                {item.description || 'No description available'}
+              </p>
+              <div className="flex flex-wrap items-center gap-2 md:gap-3 mt-2 text-[10px] md:text-xs text-gray-500">
+                <div className="flex items-center gap-1">
+                  {getCategoryIcon(item.category)}
+                  <span className="truncate">{CATEGORY_SHORT_NAMES[item.category] || item.category}</span>
+                </div>
+                {item.preparation_time && (
+                  <div className="flex items-center gap-1">
+                    <FaClock size={10} />
+                    <span>{item.preparation_time} min</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Price and Add to Cart */}
+            <div className="flex flex-col items-end gap-2 flex-shrink-0">
+              <p className="text-base md:text-lg font-bold text-primary">${item.price}</p>
+              <button
+                onClick={() => addToCart(item)}
+                className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all bg-primary text-white hover:bg-primary/80 whitespace-nowrap"
+              >
+                Add to Cart
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black ">
+    <div className="min-h-screen bg-bg pt-20">
       {/* Hero Section */}
-      <div className="relative h-64 md:h-96 overflow-hidden">
+      <div className="relative h-64 md:h-80 overflow-hidden">
         <img
           src={img2}
           alt="Menu Hero"
@@ -62,7 +280,7 @@ function Menu() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
-              className="text-4xl md:text-6xl font-bold text-white mb-4"
+              className="text-4xl md:text-5xl font-bold text-white mb-4"
             >
               Our Menu
             </motion.h1>
@@ -70,7 +288,7 @@ function Menu() {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.9 }}
-              className="text-xl text-gray-200"
+              className="text-lg text-gray-200"
             >
               Discover our delicious selection
             </motion.p>
@@ -81,93 +299,200 @@ function Menu() {
       {/* Filters Section */}
       <div className="bg-gray-900/95 backdrop-blur-md border-b border-gray-700">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-wrap gap-4 items-center justify-between">
-            {/* Search Bar */}
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search menu..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-600 rounded-full text-white focus:outline-none focus:border-primary"
-                />
-              </div>
-            </div>
 
-            {/* Category Filter */}
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          {/* Category Filter */}
+          <div className="mt-4 mx-auto flex gap-2 overflow-x-auto pb-2">
+            <button
+              onClick={() => setSelectedCategory('all')}
+              className={`px-4 py-2 rounded-full whitespace-nowrap transition-all flex items-center gap-2 text-sm ${
+                selectedCategory === 'all'
+                  ? 'bg-primary text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+            >
+              All
+            </button>
             {categories.map((category) => (
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
                 className={`px-4 py-2 rounded-full whitespace-nowrap transition-all flex items-center gap-2 text-sm ${
                   selectedCategory === category
-                    ? "bg-primary text-white"
-                    : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
                 }`}
               >
-                {category !== "all" && getCategoryIcon(category)}
-                {category === "all" ? "All" : category}
+                {getCategoryIcon(category)}
+                <span>{CATEGORY_SHORT_NAMES[category] || category}</span>
               </button>
             ))}
           </div>
-          </div>
- {/* Cart Button (Optional) */}
-            <button className="relative bg-primary hover:bg-primary/80 text-white px-4 py-2 rounded-full transition-all">
+              <div className="flex flex-wrap gap-4 items-center justify-between">
+            {/* Search Bar */}
+            <div className="flex-1 min-w-[200px]">
+              <div className="relative">
+                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm" />
+                <input
+                  type="text"
+                  placeholder="Search menu..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-md pl-9 pr-4 py-2 bg-gray-800 border border-gray-600 rounded-full text-white focus:outline-none focus:border-primary text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Cart Button */}
+            <button
+              onClick={() => setShowCart(!showCart)}
+              className="relative bg-primary hover:bg-primary/80 text-white px-4 py-2 rounded-full transition-all text-sm"
+            >
               <FaShoppingCart className="inline mr-2" />
               Cart
+              {cart.length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                </span>
+              )}
             </button>
-         
+          </div>
         </div>
       </div>
 
-      {/* Menu Grid Section */}
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredItems.map((item, index) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="bg-gray-800/50 backdrop-blur-sm rounded-2xl overflow-hidden hover:transform hover:scale-105 transition-all duration-300 group"
-            >
-              <div className="relative h-48 bg-gray-700">
-                {/* Placeholder for image */}
-                <div className="w-full h-full flex items-center justify-center text-gray-400">
-                  No Image
-                </div>
-              </div>
-              
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-xl font-bold text-white">{item.name}</h3>
-                  <p className="text-2xl font-bold text-primary">${item.price}</p>
-                </div>
-                
-                <p className="text-gray-400 text-sm mb-3">
-                  Category: {item.category}
-                </p>
-                
-                <button className="w-full py-2 rounded-full font-semibold transition-all bg-primary text-white hover:bg-primary/80">
-                  Add to Cart
+      {/* Cart Sidebar */}
+      <AnimatePresence>
+        {showCart && (
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            className="fixed right-0 top-0 h-full w-full md:w-96 bg-gray-900 shadow-2xl z-50 border-l border-gray-700"
+          >
+            <div className="p-6 h-full flex flex-col">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-white">Your Order</h2>
+                <button
+                  onClick={() => setShowCart(false)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <FaTimes size={24} />
                 </button>
               </div>
-            </motion.div>
-          ))}
-        </div>
 
-        {/* Show message when no items */}
-        {filteredItems.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-400 text-lg">No items found in this category</p>
+              <div className="flex-1 overflow-y-auto">
+                {cart.length === 0 ? (
+                  <div className="text-center py-12">
+                    <FaShoppingCart className="text-6xl text-gray-600 mx-auto mb-4" />
+                    <p className="text-gray-400">Your cart is empty</p>
+                  </div>
+                ) : (
+                  cart.map((item) => (
+                    <div key={item.id} className="mb-4 p-4 bg-gray-800 rounded-lg">
+                      <div className="flex justify-between mb-2">
+                        <h3 className="text-white font-semibold text-sm">{item.name}</h3>
+                        <p className="text-primary">${item.price}</p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            className="w-7 h-7 bg-gray-700 rounded-full flex items-center justify-center hover:bg-gray-600"
+                          >
+                            <FaMinus size={10} />
+          </button>
+                          <span className="text-white text-sm">{item.quantity}</span>
+                          <button
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            className="w-7 h-7 bg-gray-700 rounded-full flex items-center justify-center hover:bg-gray-600"
+                          >
+                            <FaPlus size={10} />
+                          </button>
+                        </div>
+                        <p className="text-gray-300 text-sm">
+                          ${(item.price * item.quantity).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {cart.length > 0 && (
+                <div className="border-t border-gray-700 pt-4">
+                  <div className="flex justify-between mb-4">
+                    <span className="text-white font-semibold">Total:</span>
+                    <span className="text-primary font-bold text-xl">
+                      ${calculateTotal().toFixed(2)}
+                    </span>
+                  </div>
+                  <button
+                    onClick={placeOrder}
+                    className="w-full bg-primary text-white py-3 rounded-full font-semibold hover:bg-primary/80 transition-all"
+                  >
+                    Place Order
+                  </button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Menu Items - Grouped by Category */}
+      <div className="container mx-auto px-4 py-8">
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <FaSpinner className="animate-spin text-primary text-4xl" />
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="text-center py-16 bg-gray-800/30 rounded-2xl">
+            <FaUtensils className="text-5xl text-gray-600 mx-auto mb-4" />
+            <p className="text-gray-400 text-lg">No items found</p>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {groupedItems.map((group) => (
+              <div key={group.category}>
+                {/* Category Header */}
+                <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-700">
+                  <div className="text-xl">
+                    {group.icon}
+                  </div>
+                  <h2 className="text-lg font-semibold text-white">
+                    {group.displayName}
+                  </h2>
+                  <span className="text-xs text-gray-400 bg-gray-800 px-2 py-0.5 rounded-full">
+                    {group.items.length}
+                  </span>
+                </div>
+                
+                {/* Items Grid - Two columns on desktop, one on mobile */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {group.items.map((item, index) => renderItemCard(item, index))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
+
+      {/* Floating Cart Indicator for Mobile */}
+      {cart.length > 0 && !showCart && (
+        <motion.button
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          whileHover={{ scale: 1.1 }}
+          onClick={() => setShowCart(true)}
+          className="fixed bottom-6 right-6 bg-primary text-white p-4 rounded-full shadow-2xl z-40 md:hidden"
+        >
+          <FaShoppingCart size={24} />
+          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center">
+            {cart.reduce((sum, item) => sum + item.quantity, 0)}
+          </span>
+        </motion.button>
+      )}
     </div>
   );
-}
+};
 
-export default Menu;
+export default ClientMenu;

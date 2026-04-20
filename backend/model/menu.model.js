@@ -240,8 +240,7 @@ static async update(id, updates) {
          category = $4, 
          image_url = $5, 
          is_available = $6,
-         preparation_time = $7,
-         updated_at = CURRENT_TIMESTAMP
+         preparation_time = $7
      WHERE id = $8 
      RETURNING *`,
     [name, description, price, category, image_url, is_available, preparation_time, id]
@@ -249,7 +248,6 @@ static async update(id, updates) {
   
   return result.rows[0];
 }
-
   // ✅ GET ITEMS BY CATEGORY
   static async findByCategory(category, availableOnly = true) {
     try {

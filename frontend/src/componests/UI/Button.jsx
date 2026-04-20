@@ -1,9 +1,10 @@
 import React from "react";
 import { motion } from "framer-motion";
 
-const WetPaintButton = ({ children, className = "" }) => {
+const WetPaintButton = ({ children, className = "", onClick = null }) => {  // Add onClick prop
   return (
     <button
+      onClick={onClick}  // Add this line
       style={{
         "--button-glow": "rgba(34, 197, 94, 0.5)",
         "--button-glow-dark": "rgba(34, 197, 94, 0.3)",

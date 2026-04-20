@@ -1,29 +1,44 @@
-import { formatData, validateFields } from "../utils";
-import * as OrdersAPI from "../api/orders.api";
+// service/orderservice.js
+import * as OrdersAPI from "../API/orderapi";
 
 export const createOrderService = async (data) => {
-  validateFields(data, ["items"]);
-  const formatted = formatData({
+  // Validate required fields
+  if (!data.customer_name || data.customer_name.trim() === '') {
+    throw new Error('Customer name is required');
+  }
+  
+  if (!data.items || data.items.length === 0) {
+    throw new Error('At least one item is required');
+  }
+  
+  // Format the data for the API - DON'T use formatData
+  const formatted = {
+    customer_name: data.customer_name.trim(),
+    phone_number: data.phone_number || '',
     table_number: data.table_number || 1,
-    customer_name: data.customer_name || "",
-    phone_number: data.phone_number || "",
-    status: data.status || "pending",
+    notes: data.notes || '',
     total_amount: data.total_amount || 0,
-    notes: data.notes || "",
-    items: Array.isArray(data.items)
-      ? data.items.map((item) => ({
-          menu_item_id: item.menu_item_id,
-          quantity: item.quantity || 1,
-          price_at_time: item.price || 0,
-        }))
-      : [],
-  });
-
+    items: data.items.map(item => ({
+      menu_item_id: item.menu_item_id,
+      quantity: item.quantity,
+      price_at_time: item.price_at_time
+    }))
+  };
+  
+  console.log('Sending to API:', formatted);
+  
   return OrdersAPI.createOrderAPI(formatted);
 };
 
 export const updateOrderService = async (id, data) => {
-  const formatted = formatData(data); // optional: add validation here
+  const formatted = {
+    customer_name: data.customer_name,
+    phone_number: data.phone_number,
+    table_number: data.table_number,
+    notes: data.notes,
+    total_amount: data.total_amount,
+    status: data.status
+  };
   return OrdersAPI.updateOrderAPI(id, formatted);
 };
 

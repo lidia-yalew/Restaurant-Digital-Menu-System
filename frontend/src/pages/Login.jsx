@@ -1,13 +1,15 @@
-// Login.jsx - Updated version
+// Login.jsx - FIXED VERSION
 import React, { useState } from "react";
-import Banner from "../Home/Baner";
+import Banner from "./Home/Baner";
 import { motion } from "framer-motion";
-import WetPaintButton from "../../componests/UI/Button";
+import WetPaintButton from "../componests/UI/Button";
 import { Link, useNavigate } from "react-router-dom";
-import { login } from "../../API/authapi";
+import { login } from "../API/authapi";
+import { useAuth } from "../config/AuthContext"; // ADD THIS
 
 function Login() {
   const navigate = useNavigate();
+  const { login: setAuthUser } = useAuth(); // ADD THIS - get login function from context
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -28,7 +30,6 @@ function Login() {
     setLoading(true);
     setError("");
 
-    // Validation
     if (!formData.username.trim() || !formData.password.trim()) {
       setError("Please enter both username and password");
       setLoading(false);
@@ -36,29 +37,31 @@ function Login() {
     }
 
     try {
-      // Call login function
       const response = await login(formData.username, formData.password);
       
       console.log("Login successful:", response);
 
-      // Set remember me option
+      // IMPORTANT: Set user in AuthContext
+      if (response.user) {
+        setAuthUser(response.user);
+      }
+
       if (rememberMe) {
         localStorage.setItem("rememberMe", "true");
       } else {
         localStorage.removeItem("rememberMe");
       }
 
-      // Redirect based on role
       const userRole = response.user.role;
       
       if (userRole === "admin") {
-        navigate("/admin/dashboard");
+        navigate("/admin");
       } else if (userRole === "chef") {
-        navigate("/chef/kitchen");
+        navigate("/chef");
       } else if (userRole === "manager") {
         navigate("/manager/dashboard");
       } else {
-        navigate("/menu"); // Default for customers
+        navigate("/");
       }
       
     } catch (err) {

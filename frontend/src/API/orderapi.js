@@ -1,35 +1,37 @@
-import { apiRequest } from "./apiconfig";
+import { apiRequest, authRequest } from "./apiconfig";
 
+// Public - No authentication needed (customers can create orders)
 export const createOrderAPI = (payload) =>
   apiRequest("/orders", { method: "POST", body: payload });
 
-export const getOrdersAPI = () => apiRequest("/orders");
+// Protected - Require authentication (admin/manager only)
+export const getOrdersAPI = () => authRequest("/orders");
 
-export const getOrderByIdAPI = (id) => apiRequest(`/orders/${id}`);
+export const getOrderByIdAPI = (id) => authRequest(`/orders/${id}`);
 
 export const updateOrderAPI = (id, payload) =>
-  apiRequest(`/orders/${id}`, { method: "PUT", body: payload });
-//
+  authRequest(`/orders/${id}`, { method: "PUT", body: payload });
+
 export const updateOrderStatusAPI = (id, status) =>
-  apiRequest(`/orders/${id}/status`, { method: "PATCH", body: { status } });
+  authRequest(`/orders/${id}/status`, { method: "PATCH", body: { status } });
 
 export const deleteOrderAPI = (id) =>
-  apiRequest(`/orders/${id}`, { method: "DELETE" });
+  authRequest(`/orders/${id}`, { method: "DELETE" });
 
 export const getOrdersByStatusAPI = (status) =>
-  apiRequest(`/orders/status/${status}`);
+  authRequest(`/orders/status/${status}`);
 
 export const getOrdersByTableAPI = (tableNumber) =>
-  apiRequest(`/orders/table/${tableNumber}`);
+  authRequest(`/orders/table/${tableNumber}`);
 
-export const getKitchenQueueAPI = () => apiRequest("/orders/kitchen/queue");
+export const getKitchenQueueAPI = () => authRequest("/orders/kitchen/queue");
 
-export const getTodaysOrdersAPI = () => apiRequest("/orders/today");
-//
-export const getActiveOrdersAPI = () => apiRequest("/orders/active");
+export const getTodaysOrdersAPI = () => authRequest("/orders/today");
+
+export const getActiveOrdersAPI = () => authRequest("/orders/active");
 
 export const searchOrdersAPI = (query) =>
-  apiRequest(`/orders/search?q=${encodeURIComponent(query)}`);
+  authRequest(`/orders/search?q=${encodeURIComponent(query)}`);
 
 export const getModificationTimeRemainingAPI = (createdAt) => {
   const orderTime = new Date(createdAt);

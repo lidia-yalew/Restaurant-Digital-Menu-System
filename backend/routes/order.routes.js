@@ -8,7 +8,7 @@ const { verifyToken, authorize } = require("../middleware/auth");
 router.get(
   "/",
   verifyToken,
-  authorize("admin", "staff"),
+  authorize("manager","admin"),
   orderController.getAllOrders
 );
 router.get("/:id", verifyToken, orderController.getOrderById); // All authenticated users

@@ -20,7 +20,8 @@ import {
 import { 
   fetchMenuByIdService, 
   updateMenuService, 
-  fetchMenuCategoriesService 
+  fetchMenuCategoriesService,
+  uploadImageService
 } from '../../../service/menuservice';
 import { useCreate } from '../../../Hook/useinsert';
 import { 
@@ -37,20 +38,11 @@ const EditMenuItem = () => {
   const [categories, setCategories] = useState([]);
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    category: '',
-    image_url: '',
-    is_available: true,
-    preparation_time: 15
-  });
+  const [uploading, setUploading] = useState(false);
+  const [formData, setFormData] = useState(null);
 
-  // Use the existing useCreate hook for update
   const { handleCreate: handleUpdate, loading, error } = useCreate(updateMenuService);
 
-  // Get category icon component
   const getCategoryIcon = (category) => {
     const colorClass = CATEGORY_ICON_COLORS[category] || 'text-gray-500';
     switch(category) {
@@ -64,35 +56,56 @@ const EditMenuItem = () => {
     }
   };
 
-  // Fetch categories
   const fetchCategories = async () => {
     try {
       const cats = await fetchMenuCategoriesService();
-      setCategories(cats);
+      setCategories(cats || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
+      setCategories([]);
     }
   };
 
-  // Fetch menu item
   const fetchMenuItem = async () => {
     try {
+      console.log('Fetching menu item with ID:', id);
       const item = await fetchMenuByIdService(id);
-      setFormData({
-        name: item.name,
+      console.log('Received item in component:', item);
+      
+      if (!item) {
+        console.error('No item returned from API');
+        alert('Menu item not found');
+        navigate('/manager/menu');
+        return;
+      }
+      
+      if (!item.name) {
+        console.error('Item has no name property:', item);
+        alert('Invalid menu item data');
+        navigate('/manager/menu');
+        return;
+      }
+      
+      const newFormData = {
+        name: item.name || '',
         description: item.description || '',
-        price: item.price,
-        category: item.category,
+        price: item.price || '',
+        category: item.category || '',
         image_url: item.image_url || '',
-        is_available: item.is_available,
+        is_available: item.is_available !== undefined ? item.is_available : true,
         preparation_time: item.preparation_time || 15
-      });
+      };
+      
+      console.log('Setting form data to:', newFormData);
+      setFormData(newFormData);
+      
       if (item.image_url) {
         setImagePreview(item.image_url);
       }
+      
     } catch (error) {
       console.error('Error fetching menu item:', error);
-      alert('Error loading menu item');
+      alert(`Error loading menu item: ${error.message}`);
       navigate('/manager/menu');
     } finally {
       setFetching(false);
@@ -112,13 +125,12 @@ const EditMenuItem = () => {
     }));
   };
 
-  // Handle image selection
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     if (!IMAGE_CONFIG.ALLOWED_TYPES.includes(file.type)) {
-      alert('Please select a valid image file (JPEG, PNG, GIF, WEBP)');
+      alert(`Please select a valid image file (${IMAGE_CONFIG.ALLOWED_TYPES.join(', ')})`);
       return;
     }
 
@@ -127,10 +139,28 @@ const EditMenuItem = () => {
       return;
     }
 
+    // Show preview immediately
+    if (imagePreview && imagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(imagePreview);
+    }
     const previewUrl = URL.createObjectURL(file);
     setImagePreview(previewUrl);
-    setImageFile(file);
-    setFormData(prev => ({ ...prev, image_url: previewUrl }));
+    
+    // Upload image to server
+    setUploading(true);
+    try {
+      console.log('Starting upload...');
+      const imageUrl = await uploadImageService(file);
+      console.log('Upload successful, URL:', imageUrl);
+      setImageFile(file);
+      setFormData(prev => ({ ...prev, image_url: imageUrl }));
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert(`Failed to upload image: ${error.message}`);
+      setImagePreview(null);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleRemoveImage = () => {
@@ -142,56 +172,55 @@ const EditMenuItem = () => {
     setFormData(prev => ({ ...prev, image_url: '' }));
   };
 
-  const convertToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-    });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.price || !formData.category) {
-      alert('Please fill all required fields');
+    console.log('Submitting form with data:', formData);
+    
+    if (!formData) {
+      alert('Form data not loaded yet');
+      return;
+    }
+    
+    if (!formData.name || formData.name.trim() === '') {
+      alert('Please enter an item name');
+      return;
+    }
+    
+    if (!formData.price || formData.price <= 0) {
+      alert('Please enter a valid price');
+      return;
+    }
+    
+    if (!formData.category) {
+      alert('Please select a category');
       return;
     }
 
     try {
-      let imageUrl = formData.image_url;
-      if (imageFile) {
-        imageUrl = await convertToBase64(imageFile);
-      }
-      
       const payload = {
-        name: formData.name,
-        description: formData.description,
+        name: formData.name.trim(),
+        description: formData.description || '',
         price: parseFloat(formData.price),
         category: formData.category,
-        image_url: imageUrl,
+        image_url: formData.image_url,
         is_available: formData.is_available,
-        preparation_time: parseInt(formData.preparation_time)
+        preparation_time: parseInt(formData.preparation_time) || 15
       };
+      
+      console.log('Sending payload to server:', payload);
       
       await handleUpdate(id, payload);
       alert('Menu item updated successfully!');
       
-      if (imagePreview && imagePreview.startsWith('blob:')) {
-        URL.revokeObjectURL(imagePreview);
-      }
-      
       navigate('/manager/menu');
     } catch (error) {
       console.error('Error updating item:', error);
-      if (!error.message?.includes('handled')) {
-        alert(error.message || 'Error updating menu item');
-      }
+      alert(error.message || 'Error updating menu item');
     }
   };
 
-  if (fetching) {
+  if (fetching || !formData) {
     return (
       <div className="flex justify-center items-center h-64">
         <FaSpinner className="animate-spin text-primary text-4xl" />
@@ -200,24 +229,27 @@ const EditMenuItem = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="mb-8">
         <button
           onClick={() => navigate('/manager/menu')}
-          className="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-4"
+          className="text-primary/500 hover:text-gray-700 flex items-center gap-2 mb-4 transition-colors"
+          disabled={loading || uploading}
         >
           <FaArrowLeft size={16} /> Back to Menu
         </button>
-        <h1 className="text-2xl font-bold text-gray-800">Edit Menu Item</h1>
-        <p className="text-gray-500 text-sm mt-1">Update dish information</p>
+        <h1 className="text-2xl font-bold text-primary">Edit Menu Item</h1>
+        <p className="text-primary/500 text-sm mt-1">Update dish information</p>
       </div>
 
-      {/* Display error from hook if any */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm"
+        >
           {error}
-        </div>
+        </motion.div>
       )}
 
       <motion.form
@@ -235,11 +267,13 @@ const EditMenuItem = () => {
             <input
               type="text"
               name="name"
-              value={formData.name}
+              value={formData.name || ''}
               onChange={handleInputChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors placeholder:text-gray-400 text-gray-800"
               placeholder="e.g., Doro Wot, Tibs, Pizza"
-              disabled={loading}
+              autoFocus
+              disabled={loading || uploading}
+              maxLength={100}
             />
           </div>
 
@@ -248,17 +282,21 @@ const EditMenuItem = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
               name="description"
-              value={formData.description}
+              value={formData.description || ''}
               onChange={handleInputChange}
               rows="3"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary resize-none"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none transition-colors placeholder:text-gray-400 text-gray-800"
               placeholder="Describe the dish, ingredients, preparation..."
-              disabled={loading}
+              disabled={loading || uploading}
+              maxLength={500}
             />
+            <p className="text-xs text-gray-400 mt-1">
+              {(formData.description || '').length}/500 characters
+            </p>
           </div>
 
           {/* Price and Category */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Price ($) <span className="text-red-500">*</span>
@@ -266,13 +304,13 @@ const EditMenuItem = () => {
               <input
                 type="number"
                 name="price"
-                value={formData.price}
+                value={formData.price || ''}
                 onChange={handleInputChange}
                 step="0.01"
                 min="0"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors placeholder:text-gray-400 text-gray-800"
                 placeholder="0.00"
-                disabled={loading}
+                disabled={loading || uploading}
               />
             </div>
             <div>
@@ -282,11 +320,12 @@ const EditMenuItem = () => {
               <div className="relative">
                 <select
                   name="category"
-                  value={formData.category}
+                  value={formData.category || ''}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary appearance-none bg-white"
-                  disabled={loading}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary appearance-none bg-white transition-colors text-gray-800"
+                  disabled={loading || uploading}
                 >
+                  <option value="">Select a category</option>
                   {categories.length > 0 ? (
                     categories.map((cat, index) => (
                       <option key={index} value={cat}>
@@ -297,30 +336,34 @@ const EditMenuItem = () => {
                     <option value="">Loading categories...</option>
                   )}
                 </select>
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">
                   {getCategoryIcon(formData.category)}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Image Upload */}
+          {/* Image Upload - Same as CreateMenuItem */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Item Image</label>
-            <div className="flex items-start gap-4">
+            <div className="flex flex-col sm:flex-row items-start gap-4">
               <div className="relative">
                 {imagePreview ? (
-                  <div className="relative">
+                  <div className="relative group">
                     <img
                       src={imagePreview}
                       alt="Preview"
-                      className="w-28 h-28 object-cover rounded-lg border border-gray-200"
+                      className="w-28 h-28 object-cover rounded-lg border border-gray-200 shadow-sm"
+                      onError={(e) => {
+                        e.target.src = '';
+                        e.target.style.display = 'none';
+                      }}
                     />
                     <button
                       type="button"
                       onClick={handleRemoveImage}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                      disabled={loading}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-colors shadow-md"
+                      disabled={loading || uploading}
                     >
                       <FaTrash size={12} />
                     </button>
@@ -333,22 +376,32 @@ const EditMenuItem = () => {
               </div>
 
               <div className="flex-1">
-                <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg hover:bg-gray-100 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                  <FaCloudUploadAlt className="text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700">Choose New Image</span>
+                <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors ${(loading || uploading) ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  <FaCloudUploadAlt className="text-primary/500" />
+                  <span className="text-sm font-medium text-gray-700">
+                    {uploading ? 'Uploading...' : 'Choose New Image'}
+                  </span>
                   <input
                     type="file"
-                    accept={IMAGE_CONFIG.ALLOWED_TYPES_STRING}
+                    accept={IMAGE_CONFIG.ALLOWED_TYPES.join(',')}
                     onChange={handleImageChange}
                     className="hidden"
-                    disabled={loading}
+                    disabled={loading || uploading}
                   />
                 </label>
+                {uploading && (
+                  <p className="text-xs text-blue-500 mt-2 flex items-center gap-1">
+                    <FaSpinner className="animate-spin" /> Uploading image to server...
+                  </p>
+                )}
                 <p className="text-xs text-gray-500 mt-2">
-                  Recommended: {IMAGE_CONFIG.RECOMMENDED_DIMENSIONS}. Max {IMAGE_CONFIG.MAX_SIZE_MB}MB
+                  Recommended: {IMAGE_CONFIG.RECOMMENDED_DIMENSIONS}. Max {IMAGE_CONFIG.MAX_SIZE_MB}MB. 
+                  Formats: {IMAGE_CONFIG.ALLOWED_TYPES.map(t => t.split('/')[1].toUpperCase()).join(', ')}
                 </p>
                 {formData.image_url && !imageFile && (
-                  <p className="text-xs text-green-600 mt-1">Current image preserved</p>
+                  <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                    <span>✓</span> Current image preserved
+                  </p>
                 )}
               </div>
             </div>
@@ -361,10 +414,10 @@ const EditMenuItem = () => {
               <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <select
                 name="preparation_time"
-                value={formData.preparation_time}
+                value={formData.preparation_time || 15}
                 onChange={handleInputChange}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary appearance-none bg-white"
-                disabled={loading}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary appearance-none bg-white transition-colors text-gray-800"
+                disabled={loading || uploading}
               >
                 {PREPARATION_TIMES.map(min => (
                   <option key={min} value={min}>{min} minutes</option>
@@ -378,35 +431,35 @@ const EditMenuItem = () => {
             <input
               type="checkbox"
               name="is_available"
-              checked={formData.is_available}
+              checked={formData.is_available || false}
               onChange={handleInputChange}
               id="available"
-              className="w-4 h-4 text-primary rounded"
-              disabled={loading}
+              className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+              disabled={loading || uploading}
             />
-            <label htmlFor="available" className="text-sm text-gray-700">
+            <label htmlFor="available" className="text-sm text-gray-700 cursor-pointer">
               Available for ordering (visible to customers)
             </label>
           </div>
         </div>
 
         {/* Form Actions */}
-        <div className="flex gap-3 mt-8 pt-6 border-t border-gray-100">
+        <div className="flex flex-col sm:flex-row gap-3 mt-8 pt-6 border-t border-gray-100">
           <button
             type="button"
             onClick={() => navigate('/manager/menu')}
-            className="flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2 font-medium"
-            disabled={loading}
+            className="order-2 sm:order-1 flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2 font-medium transition-colors"
+            disabled={loading || uploading}
           >
             <FaTimes size={16} /> Cancel
           </button>
           <button
             type="submit"
-            disabled={loading}
-            className="flex-1 bg-primary text-white py-2.5 rounded-lg hover:bg-primary/90 flex items-center justify-center gap-2 disabled:opacity-50 font-medium"
+            disabled={loading || uploading}
+            className="order-1 sm:order-2 flex-1 bg-primary text-white py-2.5 rounded-lg hover:bg-primary/90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
           >
-            {loading ? <FaSpinner className="animate-spin" /> : <FaSave />}
-            {loading ? 'Saving...' : 'Save Changes'}
+            {(loading || uploading) ? <FaSpinner className="animate-spin" /> : <FaSave />}
+            {loading ? 'Saving...' : uploading ? 'Uploading...' : 'Save Changes'}
           </button>
         </div>
       </motion.form>

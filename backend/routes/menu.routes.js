@@ -28,13 +28,13 @@ router.get("/:id", menuController.getMenuItemById);
 router.post(
   "/",
   verifyToken,
-  authorize("admin"),
+  authorize("manager","admin"),
   menuController.createMenuItem
 );
 router.put(
   "/:id",
   verifyToken,
-  authorize("admin"),
+  authorize("manager","admin"),
   menuController.updateMenuItem
 );
 router.patch(

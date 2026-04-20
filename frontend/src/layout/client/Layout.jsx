@@ -7,7 +7,7 @@ function Layout() {
       <div>
         <Nav />
       </div>
-      <div className=''>
+      <div>
         <Outlet />
       </div>
     </div>

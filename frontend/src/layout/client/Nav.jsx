@@ -94,11 +94,12 @@ function Nav() {
   // Memoized nav items
   const navItems = useMemo(
     () => [
-      { name: "Home", path: "/", id: 1 },
+      { name: "home", path: "/", id: 1 },
       { name: "About", path: "/aboutme", id: 2 },
       { name: "Menu", path: "/menu", id: 3 },
       { name: "Reserve", path: "/reserve", id: 4 },
       { name: "Login", path: "/login", id: 5 },
+      { name: "Profile", path: "/profile", id: 5 },
     ],
     []
   );

@@ -9,8 +9,10 @@ const { verifyToken, authorize } = require("../middleware/auth");
 // POST /api/auth/register
 router.post("/register", async (req, res) => {
   try {
-    const { username, password, role = "customer" } = req.body;
+    const { username, password, role } = req.body;
+    const userRole = 'customer'; // Always customer for public registration
 
+    // Validation
     if (!username || !password) {
       return res.status(400).json({ 
         success: false,
@@ -35,15 +37,15 @@ router.post("/register", async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // IMPORTANT: Use 'password_hash' instead of 'password'
+    // Create user with customer role
     const result = await pool.query(
       "INSERT INTO users (username, password_hash, role) VALUES ($1, $2, $3) RETURNING id, username, role",
-      [username, hashedPassword, role]
+      [username, hashedPassword, userRole]
     );
 
     const newUser = result.rows[0];
 
-    // Create token
+    // Create token for auto-login
     const token = jwt.sign(
       {
         id: newUser.id,
@@ -62,10 +64,10 @@ router.post("/register", async (req, res) => {
     });
     
   } catch (error) {
-    console.error("Registration error:", error);
+    console.error(error);
     res.status(500).json({
       success: false,
-      error: error.message || "Server error",
+      error: "Server error",
     });
   }
 });

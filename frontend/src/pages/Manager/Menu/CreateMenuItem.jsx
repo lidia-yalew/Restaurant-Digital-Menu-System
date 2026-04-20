@@ -19,7 +19,8 @@ import {
 } from 'react-icons/fa';
 import { 
   createMenuItemService, 
-  fetchMenuCategoriesService 
+  fetchMenuCategoriesService,
+  uploadImageService
 } from '../../../service/menuservice';
 import { useCreate } from '../../../Hook/useinsert';
 import { 
@@ -34,6 +35,7 @@ const CreateMenuItem = () => {
   const [categories, setCategories] = useState([]);
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -51,28 +53,10 @@ const CreateMenuItem = () => {
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const response = await fetchMenuCategoriesService();
-        
-        let cats = [];
-        if (Array.isArray(response)) {
-          cats = response;
-        } else if (response?.data && Array.isArray(response.data)) {
-          cats = response.data;
-        } else if (response?.categories && Array.isArray(response.categories)) {
-          cats = response.categories;
-        } else {
-          cats = MENU_CATEGORIES;
-        }
-        
-        const categoryNames = cats.map(cat => 
-          typeof cat === 'string' ? cat : (cat.category || cat.name || cat)
-        );
-        
-        const uniqueCats = [...new Set(categoryNames)];
-        setCategories(uniqueCats);
-        
-        if (uniqueCats.length > 0 && !formData.category) {
-          setFormData(prev => ({ ...prev, category: uniqueCats[0] }));
+        const cats = await fetchMenuCategoriesService();
+        setCategories(cats);
+        if (cats.length > 0 && !formData.category) {
+          setFormData(prev => ({ ...prev, category: cats[0] }));
         }
       } catch (error) {
         console.error('Error fetching categories:', error);
@@ -97,34 +81,55 @@ const CreateMenuItem = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    // Reset error when user starts typing
     if (error) resetError();
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const handleImageChange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) {
+    console.log('No file selected');
+    return;
+  }
 
-    if (!IMAGE_CONFIG.ALLOWED_TYPES.includes(file.type)) {
-      alert(`Please select a valid image file (${IMAGE_CONFIG.ALLOWED_TYPES.join(', ')})`);
-      return;
-    }
+  console.log('File selected:', {
+    name: file.name,
+    type: file.type,
+    size: file.size
+  });
 
-    if (file.size > IMAGE_CONFIG.MAX_SIZE_BYTES) {
-      alert(`Image size should be less than ${IMAGE_CONFIG.MAX_SIZE_MB}MB`);
-      return;
-    }
+  if (!IMAGE_CONFIG.ALLOWED_TYPES.includes(file.type)) {
+    alert(`Please select a valid image file (${IMAGE_CONFIG.ALLOWED_TYPES.join(', ')})`);
+    return;
+  }
 
-    // Clean up old preview
-    if (imagePreview) {
-      URL.revokeObjectURL(imagePreview);
-    }
+  if (file.size > IMAGE_CONFIG.MAX_SIZE_BYTES) {
+    alert(`Image size should be less than ${IMAGE_CONFIG.MAX_SIZE_MB}MB`);
+    return;
+  }
 
-    const previewUrl = URL.createObjectURL(file);
-    setImagePreview(previewUrl);
+  // Show preview immediately
+  if (imagePreview) {
+    URL.revokeObjectURL(imagePreview);
+  }
+  const previewUrl = URL.createObjectURL(file);
+  setImagePreview(previewUrl);
+  
+  // Upload image to server
+  setUploading(true);
+  try {
+    console.log('Starting upload...');
+    const imageUrl = await uploadImageService(file);
+    console.log('Upload successful, URL:', imageUrl);
     setImageFile(file);
-    setFormData(prev => ({ ...prev, image_url: previewUrl }));
-  };
+    setFormData(prev => ({ ...prev, image_url: imageUrl }));
+  } catch (error) {
+    console.error('Upload error details:', error);
+    alert(`Failed to upload image: ${error.message}`);
+    setImagePreview(null);
+  } finally {
+    setUploading(false);
+  }
+};
 
   const handleRemoveImage = () => {
     if (imagePreview) {
@@ -136,15 +141,6 @@ const CreateMenuItem = () => {
     if (imageInputRef.current) {
       imageInputRef.current.value = '';
     }
-  };
-
-  const convertToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-    });
   };
 
   const handleSubmit = async (e) => {
@@ -161,17 +157,12 @@ const CreateMenuItem = () => {
     }
 
     try {
-      let imageUrl = '';
-      if (imageFile) {
-        imageUrl = await convertToBase64(imageFile);
-      }
-      
       const payload = {
         name: formData.name.trim(),
         description: formData.description.trim(),
         price: parseFloat(formData.price),
         category: formData.category,
-        image_url: imageUrl,
+        image_url: formData.image_url, // URL from server after upload
         is_available: formData.is_available,
         preparation_time: parseInt(formData.preparation_time)
       };
@@ -179,10 +170,9 @@ const CreateMenuItem = () => {
       await handleCreate(payload);
       
       alert('Menu item created successfully!');
-      handleRemoveImage(); // Clean up preview
+      handleRemoveImage();
       navigate('/manager/menu');
     } catch (error) {
-      // Error is already handled by the hook
       console.error('Submission error:', error);
     }
   };
@@ -195,7 +185,7 @@ const CreateMenuItem = () => {
       case 'bread': return <FaBreadSlice className="text-yellow-600" />;
       case 'dessert': return <FaIceCream className="text-pink-500" />;
       case 'drink': return <FaCoffee className="text-brown-600" />;
-      default: return <FaUtensils className="text-gray-500" />;
+      default: return <FaUtensils className="text-primary/500" />;
     }
   }, []);
 
@@ -216,13 +206,13 @@ const CreateMenuItem = () => {
       <div className="mb-8">
         <button
           onClick={() => navigate('/manager/menu')}
-          className="text-gray-500 hover:text-gray-700 flex items-center gap-2 mb-4 transition-colors"
-          disabled={loading}
+          className="text-primary/500 hover:text-gray-700 flex items-center gap-2 mb-4 transition-colors"
+          disabled={loading || uploading}
         >
           <FaArrowLeft size={16} /> Back to Menu
         </button>
-        <h1 className="text-2xl font-bold text-gray-800">Create New Menu Item</h1>
-        <p className="text-gray-500 text-sm mt-1">Add a new dish to your restaurant menu</p>
+        <h1 className="text-2xl font-bold text-primary">Create New Menu Item</h1>
+        <p className="text-primary/500 text-sm mt-1">Add a new dish to your restaurant menu</p>
       </div>
 
       {error && (
@@ -252,10 +242,10 @@ const CreateMenuItem = () => {
               name="name"
               value={formData.name}
               onChange={handleInputChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors placeholder:text-gray-400 text-gray-800"
               placeholder="e.g., Doro Wot, Tibs, Pizza"
               autoFocus
-              disabled={loading}
+              disabled={loading || uploading}
               maxLength={100}
             />
           </div>
@@ -268,9 +258,9 @@ const CreateMenuItem = () => {
               value={formData.description}
               onChange={handleInputChange}
               rows="3"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none transition-colors"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none transition-colors placeholder:text-gray-400 text-gray-800"
               placeholder="Describe the dish, ingredients, preparation..."
-              disabled={loading}
+              disabled={loading || uploading}
               maxLength={500}
             />
             <p className="text-xs text-gray-400 mt-1">
@@ -291,9 +281,9 @@ const CreateMenuItem = () => {
                 onChange={handleInputChange}
                 step="0.01"
                 min="0"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors placeholder:text-gray-400 text-gray-800"
                 placeholder="0.00"
-                disabled={loading}
+                disabled={loading || uploading}
               />
             </div>
             <div>
@@ -305,8 +295,8 @@ const CreateMenuItem = () => {
                   name="category"
                   value={formData.category}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary appearance-none bg-white transition-colors"
-                  disabled={loading}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary appearance-none bg-white transition-colors text-gray-800"
+                  disabled={loading || uploading}
                 >
                   {categories.length > 0 ? (
                     categories.map((cat, index) => (
@@ -341,7 +331,7 @@ const CreateMenuItem = () => {
                       type="button"
                       onClick={handleRemoveImage}
                       className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-colors shadow-md"
-                      disabled={loading}
+                      disabled={loading || uploading}
                     >
                       <FaTrash size={12} />
                     </button>
@@ -354,18 +344,25 @@ const CreateMenuItem = () => {
               </div>
 
               <div className="flex-1">
-                <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                  <FaCloudUploadAlt className="text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700">Choose Image</span>
+                <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors ${(loading || uploading) ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  <FaCloudUploadAlt className="text-primary/500" />
+                  <span className="text-sm font-medium text-gray-700">
+                    {uploading ? 'Uploading...' : 'Choose Image'}
+                  </span>
                   <input
                     ref={imageInputRef}
                     type="file"
                     accept={IMAGE_CONFIG.ALLOWED_TYPES.join(',')}
                     onChange={handleImageChange}
                     className="hidden"
-                    disabled={loading}
+                    disabled={loading || uploading}
                   />
                 </label>
+                {uploading && (
+                  <p className="text-xs text-blue-500 mt-2 flex items-center gap-1">
+                    <FaSpinner className="animate-spin" /> Uploading image to server...
+                  </p>
+                )}
                 <p className="text-xs text-gray-500 mt-2">
                   Recommended: {IMAGE_CONFIG.RECOMMENDED_DIMENSIONS}. Max {IMAGE_CONFIG.MAX_SIZE_MB}MB. 
                   Formats: {IMAGE_CONFIG.ALLOWED_TYPES.map(t => t.split('/')[1].toUpperCase()).join(', ')}
@@ -383,8 +380,8 @@ const CreateMenuItem = () => {
                 name="preparation_time"
                 value={formData.preparation_time}
                 onChange={handleInputChange}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary appearance-none bg-white transition-colors"
-                disabled={loading}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary appearance-none bg-white transition-colors text-gray-800"
+                disabled={loading || uploading}
               >
                 {PREPARATION_TIMES.map(min => (
                   <option key={min} value={min}>{min} minutes</option>
@@ -402,7 +399,7 @@ const CreateMenuItem = () => {
               onChange={handleInputChange}
               id="available"
               className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
-              disabled={loading}
+              disabled={loading || uploading}
             />
             <label htmlFor="available" className="text-sm text-gray-700 cursor-pointer">
               Available for ordering (visible to customers)
@@ -416,17 +413,17 @@ const CreateMenuItem = () => {
             type="button"
             onClick={() => navigate('/manager/menu')}
             className="order-2 sm:order-1 flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2 font-medium transition-colors"
-            disabled={loading}
+            disabled={loading || uploading}
           >
             <FaTimes size={16} /> Cancel
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || uploading}
             className="order-1 sm:order-2 flex-1 bg-primary text-white py-2.5 rounded-lg hover:bg-primary/90 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
           >
-            {loading ? <FaSpinner className="animate-spin" /> : <FaSave />}
-            {loading ? 'Creating...' : 'Create Item'}
+            {(loading || uploading) ? <FaSpinner className="animate-spin" /> : <FaSave />}
+            {loading ? 'Creating...' : uploading ? 'Uploading...' : 'Create Item'}
           </button>
         </div>
       </motion.form>

@@ -49,8 +49,12 @@ export const createMenuItemAPI = (payload) => {
     body: payload,
   });
 };
-// ✅ update menu item
+
 export const updateMenuItemAPI = (id, payload) => {
+  console.log('updateMenuItemAPI called with id:', id);
+  console.log('updateMenuItemAPI payload:', payload);
+  console.log('updateMenuItemAPI payload.name:', payload.name);
+  
   return authRequest(`/menu/${id}`, {
     method: "PUT",
     body: payload,
@@ -80,14 +84,20 @@ export const bulkUpdateAvailability = async (itemIds, isAvailable) => {
   });
 };
 
-// ✅ NEW: Upload menu item image
-export const uploadMenuItemImage = async (id, imageFile) => {
+// ✅ NEW: Upload image to server (SIMPLE VERSION)
+export const uploadImage = async (imageFile) => {
   const formData = new FormData();
-  formData.append("image", imageFile);
-
-  return await authRequest(`/menu/${id}/image`, {
-    method: "POST",
+  formData.append('image', imageFile);
+  
+  return await authRequest('/upload/image', {
+    method: 'POST',
     body: formData,
-    headers: {}, // Let browser set Content-Type for FormData
+  });
+};
+
+// ✅ NEW: Delete uploaded image
+export const deleteUploadedImage = async (filename) => {
+  return await authRequest(`/upload/image/${filename}`, {
+    method: 'DELETE',
   });
 };
