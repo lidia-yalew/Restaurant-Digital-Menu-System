@@ -69,7 +69,8 @@ export const toggleMenuItemAvailability = async (id, currentStatus) => {
   });
 };
 
-// ✅ ADMIN: Delete menu item
+
+// In menuapi.js - make sure this is there:
 export const deleteMenuItem = async (id) => {
   return await authRequest(`/menu/${id}`, {
     method: "DELETE",

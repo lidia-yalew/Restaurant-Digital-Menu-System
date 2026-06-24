@@ -1,12 +1,12 @@
 import { apiRequest } from "./apiconfig";
-import { getAuthToken } from "./auth.api"; // Use existing!
+import { getAuthToken } from "./authapi";
 
 // ✅ GET ALL USERS (ADMIN DASHBOARD)
 export const getAllUsers = async () => {
   const token = getAuthToken();
   if (!token) throw new Error("Authentication required");
 
-  return await apiRequest("/users", {
+  return await apiRequest("/user", {
     headers: { Authorization: `Bearer ${token}` },
   });
 };
@@ -16,7 +16,7 @@ export const updateUserRole = async (userId, newRole) => {
   const token = getAuthToken();
   if (!token) throw new Error("Authentication required");
 
-  return await apiRequest(`/users/${userId}/role`, {
+  return await apiRequest(`/user/${userId}/role`, {
     method: "PATCH",
     headers: { Authorization: `Bearer ${token}` },
     body: { role: newRole },
@@ -28,7 +28,7 @@ export const deleteUser = async (userId) => {
   const token = getAuthToken();
   if (!token) throw new Error("Authentication required");
 
-  return await apiRequest(`/users/${userId}`, {
+  return await apiRequest(`/user/${userId}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -39,7 +39,7 @@ export const getUserStats = async () => {
   const token = getAuthToken();
   if (!token) throw new Error("Authentication required");
 
-  return await apiRequest("/users/stats", {
+  return await apiRequest("/user/stats", {
     headers: { Authorization: `Bearer ${token}` },
   });
 };
@@ -49,7 +49,7 @@ export const searchUsers = async (searchTerm) => {
   const token = getAuthToken();
   if (!token) throw new Error("Authentication required");
 
-  return await apiRequest(`/users/search?q=${encodeURIComponent(searchTerm)}`, {
+  return await apiRequest(`/user/search?q=${encodeURIComponent(searchTerm)}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 };

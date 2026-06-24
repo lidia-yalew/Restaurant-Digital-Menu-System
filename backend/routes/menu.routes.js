@@ -34,19 +34,19 @@ router.post(
 router.put(
   "/:id",
   verifyToken,
-  authorize("manager","admin"),
+  authorize("manager","admin","chef"),
   menuController.updateMenuItem
 );
 router.patch(
   "/:id/availability",
   verifyToken,
-  authorize("admin", "staff"),
+  authorize("admin","chef"),
   menuController.updateMenuItemAvailability
 );
 router.delete(
   "/:id",
   verifyToken,
-  authorize("admin"),
+  authorize("admin","manager"),
   menuController.deleteMenuItem
 );
 
@@ -54,7 +54,7 @@ router.delete(
 router.post(
   "/bulk/availability",
   verifyToken,
-  authorize("admin", "staff"),
+  authorize("admin", "chef"),
   menuController.bulkUpdateAvailability
 );
 
@@ -66,5 +66,12 @@ router.post(
   upload.single("image"), // Multer middleware
   menuController.uploadMenuItemImage
 );
-
+// NEW: Update only preparation time
+// Add this route after your other routes
+router.patch(
+  '/:id/prep-time',
+  verifyToken,
+  authorize('admin','chef'),
+  menuController.updatePrepTime
+);
 module.exports = router;

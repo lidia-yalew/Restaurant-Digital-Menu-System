@@ -16,7 +16,11 @@ import {
   FaFlag,
   FaGlobe,
   FaBreadSlice,
-  FaEllipsisV
+  FaEllipsisV,
+  FaToggleOn,
+  FaToggleOff,
+  FaCheckCircle,
+  FaTimesCircle
 } from 'react-icons/fa';
 import {
   fetchMenuService,
@@ -46,16 +50,17 @@ const getCategoryIcon = (category) => {
     default: return <FaUtensils className="text-gray-500" />;
   }
 };
+
 const getImageUrl = (imageUrl) => {
   if (!imageUrl) return null;
-  // If it's already a full URL, return as is
   if (imageUrl.startsWith('http')) return imageUrl;
-  // If it starts with /uploads, add the API base URL
   if (imageUrl.startsWith('/uploads')) {
-    return `http://localhost:1994${imageUrl}`;
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:1994';
+    return `${baseURL}${imageUrl}`;
   }
   return imageUrl;
 };
+
 const MenuList = () => {
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -66,6 +71,7 @@ const MenuList = () => {
   const [itemToDelete, setItemToDelete] = useState(null);
   const [error, setError] = useState(null);
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [togglingItem, setTogglingItem] = useState(null);
   
   // Get current user role from auth context
   const { user } = useAuth();
@@ -74,12 +80,12 @@ const MenuList = () => {
   // Role-based permissions
   const isAdmin = userRole === 'admin';
   const isManager = userRole === 'manager';
-  const isChef = userRole === 'kitchen';
+  const isChef = userRole === 'chef';
   
-  const canAddItem = isAdmin || isManager;
+  const canAddItem = isManager;
   const canEditItem = isAdmin || isManager;
-  const canDeleteItem = isAdmin;
-  const canToggleAvailability = isAdmin || isManager || isChef;
+  const canDeleteItem = isManager;
+  const canToggleAvailability = isChef || isAdmin || isManager;
   const showDropdown = canToggleAvailability || canEditItem || canDeleteItem;
   
   // Create refs for each dropdown
@@ -119,7 +125,6 @@ const MenuList = () => {
   const fetchCategories = async () => {
     try {
       const cats = await fetchMenuCategoriesService();
-      // Ensure categories are in the correct order
       const orderedCats = CATEGORY_ORDER.filter(cat => cats.includes(cat));
       setCategories(orderedCats);
     } catch (error) {
@@ -142,16 +147,23 @@ const MenuList = () => {
     return matchesSearch && matchesCategory;
   }) : [];
 
-  // Toggle availability using service
+  // Handle toggle availability - FIXED: Pass both id and current status
   const handleToggleAvailability = async (item) => {
     if (!canToggleAvailability) return;
+    
+    setTogglingItem(item.id);
+    setOpenDropdown(null);
+    
     try {
+      // Call the service with item ID and current availability status
       await toggleMenuItemAvailabilityService(item.id, item.is_available);
+      // Refresh the list after successful toggle
       await fetchMenuItems();
-      setOpenDropdown(null);
     } catch (error) {
       console.error('Error toggling availability:', error);
-      alert('Failed to update availability');
+      alert('Failed to update item availability. Please try again.');
+    } finally {
+      setTogglingItem(null);
     }
   };
 
@@ -207,18 +219,26 @@ const MenuList = () => {
   const renderDropdownMenu = (item) => {
     return (
       <div className="py-1">
-        {/* Mark Available/Out - For Admin, Manager, and Chef */}
+        {/* Toggle Availability - For Chef, Admin, and Manager */}
         {canToggleAvailability && (
           <button
             onClick={() => handleToggleAvailability(item)}
-            className={`w-full px-4 py-2 text-sm text-left flex items-center gap-2 transition-all ${
-              item.is_available
-                ? 'text-yellow-600 hover:bg-yellow-50'
-                : 'text-green-600 hover:bg-green-50'
-            }`}
+            disabled={togglingItem === item.id}
+            className="w-full px-4 py-2 text-sm text-left flex items-center gap-2 text-gray-700 hover:bg-gray-50 transition-all disabled:opacity-50"
           >
-            {item.is_available ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
-            {item.is_available ? 'Mark Out' : 'Mark Available'}
+            {togglingItem === item.id ? (
+              <FaSpinner className="animate-spin text-primary" size={14} />
+            ) : item.is_available ? (
+              <>
+                <FaToggleOff className="text-red-500" size={14} />
+                Mark Out of Stock
+              </>
+            ) : (
+              <>
+                <FaToggleOn className="text-green-500" size={14} />
+                Mark Available
+              </>
+            )}
           </button>
         )}
         
@@ -233,7 +253,7 @@ const MenuList = () => {
           </Link>
         )}
         
-        {/* Delete Item - For Admin only */}
+        {/* Delete Item - For Manager only */}
         {canDeleteItem && (
           <button
             onClick={() => handleDeleteClick(item)}
@@ -247,6 +267,25 @@ const MenuList = () => {
     );
   };
 
+  // Render availability badge
+  const renderAvailabilityBadge = (item) => {
+    if (item.is_available) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
+          <FaCheckCircle size={10} />
+          Available
+        </span>
+      );
+    } else {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">
+          <FaTimesCircle size={10} />
+          Out of Stock
+        </span>
+      );
+    }
+  };
+
   // Render item card
   const renderItemCard = (item, index) => (
     <motion.div
@@ -254,30 +293,29 @@ const MenuList = () => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.03 }}
-      className="bg-card rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all overflow-hidden"
+      className={`bg-card rounded-xl shadow-sm border ${!item.is_available ? 'border-red-200 bg-red-50/30' : 'border-gray-100'} hover:shadow-md transition-all overflow-hidden`}
     >
       <div className="flex">
         {/* Image Section */}
-        <div className="w-30 h-30 p-4 flex-shrink-0  relative">
+        <div className="w-30 h-30 p-4 flex-shrink-0 relative">
           {item.image_url ? (
-           <img
-  src={getImageUrl(item.image_url)}
-  alt={item.name}
-  className="w-full h-full object-cover "
-  onError={(e) => {
-    e.target.style.display = 'none';
-    // Show fallback
-    e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>';
-  }}
-/>
+            <img
+              src={getImageUrl(item.image_url)}
+              alt={item.name}
+              className="w-full h-full object-cover rounded-lg"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></div>';
+              }}
+            />
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
+            <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg">
               <FaImage className="w-8 h-8 text-gray-300" />
             </div>
           )}
           {!item.is_available && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-l-xl">
-              <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">Out</span>
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
+              <span className="bg-red-500 text-white text-xs px-3 py-1 rounded-full font-medium">Out of Stock</span>
             </div>
           )}
         </div>
@@ -286,27 +324,31 @@ const MenuList = () => {
         <div className="flex-1 p-4">
           <div className="flex justify-between items-start">
             <div className="flex-1 pr-3">
-              <h3 className="text-base font-semibold text-primary-800">{item.name}</h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-semibold text-gray-800">{item.name}</h3>
+                {renderAvailabilityBadge(item)}
+              </div>
               <p className="text-gray-500 text-sm mt-1 line-clamp-2">
                 {item.description || 'No description available'}
               </p>
-              <div className="flex items-center gap-3 mt-2 text-xs text-gray-400 ">
-                <div className="flex items-center gap-1 text-4 ">
+              <div className="flex items-center gap-6 mt-2 text-xs text-gray-400">
+                <div className="flex items-center gap-1">
                   {getCategoryIcon(item.category)}
                   <span>{CATEGORY_DISPLAY_NAMES[item.category] || item.category}</span>
                 </div>
-                
-              </div>
-              {item.preparation_time && (
-                  <span className='text-primary'>⏱️ {item.preparation_time} min</span>
+                {item.preparation_time && (
+                  <span className="text-primary">⏱️ {item.preparation_time} min</span>
                 )}
+              </div>
             </div>
 
-            {/* Price and Dropdown Menu */}
+            {/* Price and Actions */}
             <div className="flex flex-col items-end gap-2">
-              <p className="text-lg font-bold text-primary">${item.price}</p>
+              <p className="text-xs font-bold text-primary">{item.price} ETB</p>
+
               
-              {/* Only show dropdown if user has permissions */}
+
+              {/* Dropdown Menu */}
               {showDropdown && (
                 <div 
                   className="relative" 
@@ -325,7 +367,7 @@ const MenuList = () => {
                         initial={{ opacity: 0, scale: 0.95, y: -10 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                        className="absolute right-0 top-8 z-50 w-36 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"
+                        className="absolute right-0 top-8 z-50 w-48 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"
                       >
                         {renderDropdownMenu(item)}
                       </motion.div>
@@ -344,13 +386,14 @@ const MenuList = () => {
     <div>
       {/* Header */}
       <div className="mb-8">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold text-primary">Menu Management</h1>
-            <p className="text-primary-300 text-sm mt-1">
+            <p className="text-gray-500 text-sm mt-1">
               {isAdmin && "👑 Full Access - Admin"}
-              {isManager && "📊 Manage Menu - Manager"}
-              {isChef && "👨‍🍳 Update Availability - Kitchen"}
+              {isManager && "📋 Manage Menu - Manager"}
+              {isChef && "👨‍🍳 Update Availability - Chef"}
+              {!isAdmin && !isManager && !isChef && "👀 View Only"}
             </p>
           </div>
           {/* Add New Item - Only for Admin and Manager */}
@@ -376,9 +419,9 @@ const MenuList = () => {
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+      <div className="bg-card rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
         <div className="flex flex-wrap gap-4 items-center">
-          {/* Category Filter - In correct order */}
+          {/* Category Filter */}
           <div className="flex gap-2 overflow-x-auto pb-1 flex-wrap">
             <button
               onClick={() => setSelectedCategory('all')}
@@ -396,7 +439,7 @@ const MenuList = () => {
                 onClick={() => setSelectedCategory(category)}
                 className={`px-4 py-2 rounded-xl whitespace-nowrap transition-all flex items-center gap-2 text-sm font-medium ${
                   selectedCategory === category
-                    ? 'bg-card text-white shadow-sm'
+                    ? 'bg-primary text-white shadow-sm'
                     : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
                 }`}
               >
@@ -404,8 +447,10 @@ const MenuList = () => {
                 <span>{CATEGORY_SHORT_NAMES[category] || category}</span>
               </button>
             ))}
-            {/* Search Bar - Moved to left */}
-           <div className="flex-1 min-w-[200px]  ml-30">
+          </div>
+          
+          {/* Search Bar */}
+          <div className="flex-1 min-w-[200px]">
             <div className="relative">
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
@@ -413,10 +458,9 @@ const MenuList = () => {
                 placeholder="Search menu items..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-xs pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-gray-800 placeholder:text-primary"
+                className="w-full pl-8 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all text-gray-700 placeholder:text-gray-400"
               />
             </div>
-          </div>
           </div>
         </div>
       </div>
@@ -449,7 +493,7 @@ const MenuList = () => {
             <div key={group.category}>
               <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200">
                 <div className="text-xl">{group.icon}</div>
-                <h2 className="text-lg font-semibold text-primary">{group.displayName}</h2>
+                <h2 className="text-lg font-semibold text-gray-800">{group.displayName}</h2>
                 <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">
                   {group.items.length}
                 </span>

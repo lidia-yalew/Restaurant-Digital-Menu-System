@@ -229,17 +229,17 @@ const EditMenuItem = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 bg-bg">
       <div className="mb-8">
         <button
           onClick={() => navigate('/manager/menu')}
-          className="text-primary/500 hover:text-gray-700 flex items-center gap-2 mb-4 transition-colors"
+          className="text-primary/500 hover:text-gray-600 flex items-center gap-2 mb-4 transition-colors"
           disabled={loading || uploading}
         >
           <FaArrowLeft size={16} /> Back to Menu
         </button>
         <h1 className="text-2xl font-bold text-primary">Edit Menu Item</h1>
-        <p className="text-primary/500 text-sm mt-1">Update dish information</p>
+        
       </div>
 
       {error && (
@@ -256,12 +256,12 @@ const EditMenuItem = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         onSubmit={handleSubmit}
-        className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6"
+        className="bg-card rounded-2xl shadow-sm border border-gray-100 p-6"
       >
         <div className="space-y-6">
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-600 mb-1">
               Item Name <span className="text-red-500">*</span>
             </label>
             <input
@@ -279,7 +279,7 @@ const EditMenuItem = () => {
 
           {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Description</label>
             <textarea
               name="description"
               value={formData.description || ''}
@@ -298,7 +298,7 @@ const EditMenuItem = () => {
           {/* Price and Category */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">
                 Price ($) <span className="text-red-500">*</span>
               </label>
               <input
@@ -314,7 +314,7 @@ const EditMenuItem = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-600 mb-1">
                 Category <span className="text-red-500">*</span>
               </label>
               <div className="relative">
@@ -345,7 +345,7 @@ const EditMenuItem = () => {
 
           {/* Image Upload - Same as CreateMenuItem */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Item Image</label>
+            <label className="block text-sm font-medium text-gray-600 mb-2">Item Image</label>
             <div className="flex flex-col sm:flex-row items-start gap-4">
               <div className="relative">
                 {imagePreview ? (
@@ -378,7 +378,7 @@ const EditMenuItem = () => {
               <div className="flex-1">
                 <label className={`cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors ${(loading || uploading) ? 'opacity-50 cursor-not-allowed' : ''}`}>
                   <FaCloudUploadAlt className="text-primary/500" />
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-medium text-gray-600">
                     {uploading ? 'Uploading...' : 'Choose New Image'}
                   </span>
                   <input
@@ -409,7 +409,7 @@ const EditMenuItem = () => {
 
           {/* Preparation Time */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Preparation Time</label>
+            <label className="block text-sm font-medium text-gray-600 mb-1">Preparation Time</label>
             <div className="relative max-w-[200px]">
               <FaClock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <select
@@ -437,7 +437,7 @@ const EditMenuItem = () => {
               className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
               disabled={loading || uploading}
             />
-            <label htmlFor="available" className="text-sm text-gray-700 cursor-pointer">
+            <label htmlFor="available" className="text-sm text-gray-600 cursor-pointer">
               Available for ordering (visible to customers)
             </label>
           </div>
@@ -448,7 +448,7 @@ const EditMenuItem = () => {
           <button
             type="button"
             onClick={() => navigate('/manager/menu')}
-            className="order-2 sm:order-1 flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2 font-medium transition-colors"
+            className="order-2 sm:order-1 flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-2 font-medium transition-colors"
             disabled={loading || uploading}
           >
             <FaTimes size={16} /> Cancel

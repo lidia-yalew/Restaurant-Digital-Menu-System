@@ -34,17 +34,12 @@ class Order {
 
       // Insert order items
       for (const item of items) {
-        await client.query(
-          `INSERT INTO order_items (order_id, menu_item_id, quantity, price_at_time) 
-           VALUES ($1, $2, $3, $4)`,
-          [
-            order.id,
-            item.menu_item_id,
-            item.quantity || 1,
-            item.price_at_time || 0,
-          ]
-        );
-      }
+  await client.query(
+    `INSERT INTO order_items (order_id, menu_item_id, quantity, price_at_time) 
+     VALUES ($1, $2, $3, $4)`,
+    [order.id, item.menu_item_id, item.quantity || 1, item.price_at_time || 0]
+  );
+}
 
       await client.query("COMMIT");
       return order;
@@ -58,22 +53,25 @@ class Order {
 
   static async findAll() {
     const result = await pool.query(`
-      SELECT o.*, 
-             json_agg(
-               json_build_object(
-                 'id', oi.id,
-                 'menu_item_id', oi.menu_item_id,
-                 'quantity', oi.quantity,
-                 'price_at_time', oi.price_at_time,
-                 'name', mi.name,
-                 'image_url', mi.image_url
-               )
-             ) as items
-      FROM client_orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
-      GROUP BY o.id
-      ORDER BY o.created_at DESC
+     SELECT o.*, 
+       COALESCE(
+         json_agg(
+           json_build_object(
+             'id', oi.id,
+             'menu_item_id', oi.menu_item_id,
+             'quantity', oi.quantity,
+             'price_at_time', oi.price_at_time,
+             'name', mi.name,
+             'image_url', mi.image_url
+           )
+         ) FILTER (WHERE oi.id IS NOT NULL),
+         '[]'
+       ) as items
+FROM client_orders o
+LEFT JOIN order_items oi ON o.id = oi.order_id
+LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
+GROUP BY o.id
+ORDER BY o.created_at DESC
     `);
     return result.rows;
   }
@@ -81,23 +79,25 @@ class Order {
   static async findById(id) {
     const result = await pool.query(
       `
-      SELECT o.*, 
-             json_agg(
-               json_build_object(
-                 'id', oi.id,
-                 'menu_item_id', oi.menu_item_id,
-                 'quantity', oi.quantity,
-                 'price_at_time', oi.price_at_time,
-                 'name', mi.name,
-                 'description', mi.description,
-                 'image_url', mi.image_url
-               )
-             ) as items
-      FROM client_orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
-      WHERE o.id = $1
-      GROUP BY o.id
+    SELECT o.*, 
+       COALESCE(
+         json_agg(
+           json_build_object(
+             'id', oi.id,
+             'menu_item_id', oi.menu_item_id,
+             'quantity', oi.quantity,
+             'price_at_time', oi.price_at_time,
+             'name', mi.name,
+             'image_url', mi.image_url
+           )
+         ) FILTER (WHERE oi.id IS NOT NULL),
+         '[]'
+       ) as items
+FROM client_orders o
+LEFT JOIN order_items oi ON o.id = oi.order_id
+LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
+GROUP BY o.id
+ORDER BY o.created_at DESC
     `,
       [id]
     );
@@ -153,21 +153,24 @@ class Order {
     const result = await pool.query(
       `
       SELECT o.*, 
-             json_agg(
-               json_build_object(
-                 'id', oi.id,
-                 'menu_item_id', oi.menu_item_id,
-                 'quantity', oi.quantity,
-                 'price_at_time', oi.price_at_time,
-                 'name', mi.name
-               )
-             ) as items
-      FROM client_orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
-      WHERE o.status = $1
-      GROUP BY o.id
-      ORDER BY o.created_at DESC
+       COALESCE(
+         json_agg(
+           json_build_object(
+             'id', oi.id,
+             'menu_item_id', oi.menu_item_id,
+             'quantity', oi.quantity,
+             'price_at_time', oi.price_at_time,
+             'name', mi.name,
+             'image_url', mi.image_url
+           )
+         ) FILTER (WHERE oi.id IS NOT NULL),
+         '[]'
+       ) as items
+FROM client_orders o
+LEFT JOIN order_items oi ON o.id = oi.order_id
+LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
+GROUP BY o.id
+ORDER BY o.created_at DESC
     `,
       [status]
     );
@@ -178,21 +181,24 @@ class Order {
     const result = await pool.query(
       `
       SELECT o.*, 
-             json_agg(
-               json_build_object(
-                 'id', oi.id,
-                 'menu_item_id', oi.menu_item_id,
-                 'quantity', oi.quantity,
-                 'price_at_time', oi.price_at_time,
-                 'name', mi.name
-               )
-             ) as items
-      FROM client_orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
-      WHERE o.table_number = $1
-      GROUP BY o.id
-      ORDER BY o.created_at DESC
+       COALESCE(
+         json_agg(
+           json_build_object(
+             'id', oi.id,
+             'menu_item_id', oi.menu_item_id,
+             'quantity', oi.quantity,
+             'price_at_time', oi.price_at_time,
+             'name', mi.name,
+             'image_url', mi.image_url
+           )
+         ) FILTER (WHERE oi.id IS NOT NULL),
+         '[]'
+       ) as items
+FROM client_orders o
+LEFT JOIN order_items oi ON o.id = oi.order_id
+LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
+GROUP BY o.id
+ORDER BY o.created_at DESC
     `,
       [tableNumber]
     );
@@ -211,30 +217,25 @@ class Order {
 
   static async getKitchenQueue() {
     const result = await pool.query(`
-      SELECT o.*, 
-             json_agg(
-               json_build_object(
-                 'id', oi.id,
-                 'menu_item_id', oi.menu_item_id,
-                 'quantity', oi.quantity,
-                 'price_at_time', oi.price_at_time,
-                 'name', mi.name,
-                 'category', mi.category
-               )
-             ) as items
-      FROM client_orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
-      WHERE o.status IN ('pending', 'preparing', 'confirmed')
-      GROUP BY o.id
-      ORDER BY 
-        CASE o.status 
-          WHEN 'pending' THEN 1
-          WHEN 'confirmed' THEN 2
-          WHEN 'preparing' THEN 3
-          ELSE 4
-        END,
-        o.created_at ASC
+     SELECT o.*, 
+       COALESCE(
+         json_agg(
+           json_build_object(
+             'id', oi.id,
+             'menu_item_id', oi.menu_item_id,
+             'quantity', oi.quantity,
+             'price_at_time', oi.price_at_time,
+             'name', mi.name,
+             'image_url', mi.image_url
+           )
+         ) FILTER (WHERE oi.id IS NOT NULL),
+         '[]'
+       ) as items
+FROM client_orders o
+LEFT JOIN order_items oi ON o.id = oi.order_id
+LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
+GROUP BY o.id
+ORDER BY o.created_at DESC
     `);
     return result.rows;
   }
@@ -244,26 +245,25 @@ class Order {
     const searchTerm = `%${query}%`;
     const result = await pool.query(
       `
-      SELECT o.*, 
-             json_agg(
-               json_build_object(
-                 'id', oi.id,
-                 'menu_item_id', oi.menu_item_id,
-                 'quantity', oi.quantity,
-                 'price_at_time', oi.price_at_time,
-                 'name', mi.name
-               )
-             ) as items
-      FROM client_orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
-      WHERE o.customer_name ILIKE $1 
-         OR o.phone_number ILIKE $1
-         OR o.table_number::text ILIKE $1
-         OR o.notes ILIKE $1
-         OR CAST(o.id AS TEXT) ILIKE $1
-      GROUP BY o.id
-      ORDER BY o.created_at DESC
+     SELECT o.*, 
+       COALESCE(
+         json_agg(
+           json_build_object(
+             'id', oi.id,
+             'menu_item_id', oi.menu_item_id,
+             'quantity', oi.quantity,
+             'price_at_time', oi.price_at_time,
+             'name', mi.name,
+             'image_url', mi.image_url
+           )
+         ) FILTER (WHERE oi.id IS NOT NULL),
+         '[]'
+       ) as items
+FROM client_orders o
+LEFT JOIN order_items oi ON o.id = oi.order_id
+LEFT JOIN menu_items mi ON oi.menu_item_id = mi.id
+GROUP BY o.id
+ORDER BY o.created_at DESC
     `,
       [searchTerm]
     );

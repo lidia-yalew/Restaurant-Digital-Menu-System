@@ -116,21 +116,38 @@ exports.updateOrder = async (req, res) => {
 };
 
 // ✅ UPDATE: Customer only, 5-minute limit
+// In deleteOrder function - add fallback check
 exports.deleteOrder = async (req, res) => {
   try {
     const { id } = req.params;
     const user = req.user;
 
-    // Get the order
     const order = await Order.findById(id);
     if (!order) {
       return res.status(404).json({ error: "Order not found" });
     }
 
-    // Verify customer owns this order by phone number
-    if (order.phone_number !== user.phone) {
-      return res.status(403).json({
-        error: "You can only delete your own orders",
+    // Check if user owns this order
+    // First try by user_id, then by phone number as fallback
+    let isOwner = false;
+    
+    if (order.user_id && user?.id) {
+      isOwner = order.user_id === user.id;
+    }
+    
+    // Fallback: check by phone number
+    if (!isOwner && user?.phone && order.phone_number === user.phone) {
+      isOwner = true;
+    }
+    
+    // Fallback: check by username
+    if (!isOwner && user?.username && order.customer_name === user.username) {
+      isOwner = true;
+    }
+
+    if (!isOwner) {
+      return res.status(403).json({ 
+        error: "You can only delete your own orders" 
       });
     }
 
@@ -141,19 +158,15 @@ exports.deleteOrder = async (req, res) => {
 
     if (timeDifference > 5) {
       return res.status(400).json({
-        error: `Cannot delete order after 5 minutes. Order was placed ${Math.floor(
-          timeDifference
-        )} minutes ago.`,
+        error: `Cannot delete order after 5 minutes. Order was placed ${Math.floor(timeDifference)} minutes ago.`,
       });
     }
 
-    // Delete order
     await Order.delete(id);
 
     res.json({
       message: "Order deleted successfully",
       orderId: id,
-      deletedAt: new Date().toISOString(),
       minutesSinceOrder: Math.floor(timeDifference),
     });
   } catch (error) {

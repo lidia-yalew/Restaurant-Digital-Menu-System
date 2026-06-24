@@ -2,6 +2,8 @@ import * as menuAPI from "../API/menuapi";
 import { formatData } from "../utils/formatter";
 import { validateFields } from "../utils/validator";
 import { MENU_CATEGORIES } from "../pages/Manager/Menu/menuConstants";
+import { apiRequest, authRequest } from '../API/apiconfig';
+// ... rest of your imports
 
 // Fetch categories - returns array of category strings
 export const fetchMenuCategoriesService = async () => {
@@ -52,18 +54,12 @@ export const createMenuItemService = async (data) => {
 
 // Get menu items
 export const fetchMenuService = async () => {
-  try {
-    const response = await menuAPI.getMenuItems();
-    
-    if (Array.isArray(response)) return response;
-    if (response?.data?.items && Array.isArray(response.data.items)) return response.data.items;
-    if (response?.items && Array.isArray(response.items)) return response.items;
-    
-    return [];
-  } catch (error) {
-    console.error('Error in fetchMenuService:', error);
-    return [];
-  }
+  const response = await apiRequest('/menu');
+  // Handle both old paginated format and new simple array
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response.data)) return response.data;
+  if (Array.isArray(response.data?.items)) return response.data.items;
+  return [];
 };
 
 export const fetchMenuByIdService = async (id) => {
@@ -176,4 +172,13 @@ export const deleteUploadedImageService = async (filename) => {
     console.error('Error in deleteUploadedImageService:', error);
     throw error;
   }
+};
+
+// NEW: Update only preparation time
+// Update only preparation time
+export const updatePrepTimeService = async (id, preparationTime) => {
+  return await authRequest(`/menu/${id}/prep-time`, {
+    method: "PATCH",
+    body: { preparation_time: preparationTime },
+  });
 };

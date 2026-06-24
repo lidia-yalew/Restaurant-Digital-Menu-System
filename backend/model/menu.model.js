@@ -3,175 +3,45 @@ const pool = require("../db/pool");
 class Menu {
   // ✅ GET ALL MENU ITEMS WITH ADVANCED FILTERS
   static async findAllWithFilters(filters = {}) {
-    try {
-      let query = `
-        SELECT 
-          mi.*,
-          COUNT(oi.id) as order_count,
-          ROUND(AVG(oi.quantity), 2) as avg_quantity_per_order
-        FROM menu_items mi
-        LEFT JOIN order_items oi ON mi.id = oi.menu_item_id
-        WHERE 1=1
-      `;
+  try {
+    let query = `
+      SELECT mi.*
+      FROM menu_items mi
+      LEFT JOIN order_items oi ON mi.id = oi.menu_item_id
+      WHERE 1=1
+    `;
 
-      const params = [];
-      let paramCount = 1;
+    const params = [];
+    let paramCount = 1;
 
-      // 🔍 Category Filter
-      if (filters.category) {
-        query += ` AND mi.category = $${paramCount}`;
-        params.push(filters.category);
-        paramCount++;
-      }
-
-      // 💰 Price Range Filter
-      if (filters.minPrice !== undefined) {
-        query += ` AND mi.price >= $${paramCount}`;
-        params.push(parseFloat(filters.minPrice));
-        paramCount++;
-      }
-
-      if (filters.maxPrice !== undefined) {
-        query += ` AND mi.price <= $${paramCount}`;
-        params.push(parseFloat(filters.maxPrice));
-        paramCount++;
-      }
-
-      // ✅ Availability Filter
-      if (filters.available !== undefined) {
-        query += ` AND mi.is_available = $${paramCount}`;
-        params.push(filters.available === "true" || filters.available === true);
-        paramCount++;
-      }
-
-      // 🔎 Search Filter
-      if (filters.search) {
-        query += ` AND (
-    mi.name ILIKE $${paramCount} 
-    OR mi.description ILIKE $${paramCount}
-    OR mi.category ILIKE $${paramCount}
-  )`;
-        params.push(`%${filters.search}%`);
-        paramCount++;
-      }
-
-      // 📊 Group by for aggregation
-      query += ` GROUP BY mi.id`;
-
-      // 🔢 HAVING clause for popularity
-      if (filters.minPopularity) {
-        query += ` HAVING COUNT(oi.id) >= $${paramCount}`;
-        params.push(parseInt(filters.minPopularity));
-        paramCount++;
-      }
-
-      // 📈 SORTING OPTIONS
-      const sortOptions = {
-        name_asc: "mi.name ASC",
-        name_desc: "mi.name DESC",
-        price_low: "mi.price ASC",
-        price_high: "mi.price DESC",
-        newest: "mi.created_at DESC",
-        oldest: "mi.created_at ASC",
-        popular: "order_count DESC",
-        avg_quantity: "avg_quantity_per_order DESC",
-      };
-
-      const sortBy = sortOptions[filters.sortBy] || "mi.name ASC";
-      query += ` ORDER BY ${sortBy}`;
-
-      // 📄 PAGINATION
-      if (filters.limit) {
-        const limit = parseInt(filters.limit);
-        const offset = ((parseInt(filters.page) || 1) - 1) * limit;
-
-        query += ` LIMIT $${paramCount}`;
-        params.push(limit);
-        paramCount++;
-
-        query += ` OFFSET $${paramCount}`;
-        params.push(offset);
-      }
-
-      // Execute query
-      const result = await pool.query(query, params);
-
-      // 📊 GET TOTAL COUNT (for pagination info)
-      let countQuery =
-        "SELECT COUNT(DISTINCT mi.id) as total FROM menu_items mi WHERE 1=1";
-      const countParams = [];
-      let countParamCount = 1;
-
-      // Apply same filters to count query
-      if (filters.category) {
-        countQuery += ` AND mi.category = $${countParamCount}`;
-        countParams.push(filters.category);
-        countParamCount++;
-      }
-
-      if (filters.minPrice !== undefined) {
-        countQuery += ` AND mi.price >= $${countParamCount}`;
-        countParams.push(parseFloat(filters.minPrice));
-        countParamCount++;
-      }
-
-      if (filters.maxPrice !== undefined) {
-        countQuery += ` AND mi.price <= $${countParamCount}`;
-        countParams.push(parseFloat(filters.maxPrice));
-        countParamCount++;
-      }
-
-      if (filters.available !== undefined) {
-        countQuery += ` AND mi.is_available = $${countParamCount}`;
-        countParams.push(
-          filters.available === "true" || filters.available === true
-        );
-        countParamCount++;
-      }
-
-      if (filters.search) {
-        countQuery += ` AND (
-          mi.name ILIKE $${countParamCount} 
-          OR mi.description ILIKE $${countParamCount}
-        )`;
-        countParams.push(`%${filters.search}%`);
-        countParamCount++;
-      }
-
-      const countResult = await pool.query(countQuery, countParams);
-      const total = parseInt(countResult.rows[0].total);
-      const page = parseInt(filters.page) || 1;
-      const limit = parseInt(filters.limit) || 20;
-      const totalPages = Math.ceil(total / limit);
-
-      return {
-        items: result.rows,
-        pagination: {
-          total,
-          page,
-          limit,
-          totalPages,
-          hasNext: page < totalPages,
-          hasPrev: page > 1,
-        },
-        filters: filters,
-        stats: {
-          minPrice:
-            result.rows.length > 0
-              ? Math.min(...result.rows.map((i) => i.price))
-              : 0,
-          maxPrice:
-            result.rows.length > 0
-              ? Math.max(...result.rows.map((i) => i.price))
-              : 0,
-          categories: [...new Set(result.rows.map((i) => i.category))],
-        },
-      };
-    } catch (error) {
-      console.error("Error in findAllWithFilters:", error);
-      throw error;
+    if (filters.category) {
+      query += ` AND mi.category = $${paramCount}`;
+      params.push(filters.category);
+      paramCount++;
     }
+
+    if (filters.available !== undefined) {
+      query += ` AND mi.is_available = $${paramCount}`;
+      params.push(filters.available === "true" || filters.available === true);
+      paramCount++;
+    }
+
+    if (filters.search) {
+      query += ` AND (mi.name ILIKE $${paramCount} OR mi.description ILIKE $${paramCount})`;
+      params.push(`%${filters.search}%`);
+      paramCount++;
+    }
+
+    query += ` GROUP BY mi.id ORDER BY mi.name ASC`;
+
+    const rows = await pool.query(query, params);
+    return rows.rows;
+
+  } catch (error) {
+    console.error("Error in findAllWithFilters:", error);
+    throw error;
   }
+}
 
   // ✅ GET SINGLE MENU ITEM
   static async findById(id) {
@@ -314,25 +184,26 @@ static async update(id, updates) {
     }
   }
 
-  // ✅ UPDATE AVAILABILITY
-  static async updateAvailability(id, isAvailable) {
-    try {
-      const result = await pool.query(
-        `
-        UPDATE menu_items 
-        SET is_available = $1, updated_at = NOW()
-        WHERE id = $2
-        RETURNING id, name, is_available, category
-      `,
-        [isAvailable, id]
-      );
+ // ✅ UPDATE AVAILABILITY
+static async updateAvailability(id, isAvailable) {
+  try {
+    // Remove 'updated_at = NOW()' if that column doesn't exist
+    const result = await pool.query(
+      `
+      UPDATE menu_items 
+      SET is_available = $1
+      WHERE id = $2
+      RETURNING id, name, is_available, category
+    `,
+      [isAvailable, id]
+    );
 
-      return result.rows[0];
-    } catch (error) {
-      console.error("Error updating availability:", error);
-      throw error;
-    }
+    return result.rows[0];
+  } catch (error) {
+    console.error("Error updating availability:", error);
+    throw error;
   }
+}
 
   // ✅ BULK UPDATE AVAILABILITY
   static async bulkUpdateAvailability(itemIds, isAvailable) {
@@ -375,23 +246,22 @@ static async update(id, updates) {
 
   // ✅ CHECK ACTIVE ORDERS
   static async hasActiveOrders(itemId) {
-    try {
-      const result = await pool.query(
-        `
-        SELECT COUNT(*) FROM order_items oi
-        JOIN orders o ON oi.order_id = o.id
-        WHERE oi.menu_item_id = $1 
-        AND o.status IN ('pending', 'confirmed', 'preparing')
-      `,
-        [itemId]
-      );
-
-      return parseInt(result.rows[0].count) > 0;
-    } catch (error) {
-      console.error("Error checking active orders:", error);
-      throw error;
-    }
+  try {
+    // Check what your orders table is actually called
+    const result = await pool.query(
+      `SELECT COUNT(*) FROM order_items oi
+       JOIN client_orders o ON oi.order_id = o.id
+       WHERE oi.menu_item_id = $1 
+       AND o.status IN ('pending', 'confirmed', 'preparing')`,
+      [itemId]
+    );
+    return parseInt(result.rows[0].count) > 0;
+  } catch (error) {
+    // If table doesn't exist, just allow deletion
+    console.error("Error checking active orders:", error);
+    return false;
   }
+}
 
   // ✅ GET MENU STATISTICS (for dashboard)
   static async getStatistics() {

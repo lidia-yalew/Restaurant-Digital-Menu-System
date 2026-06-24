@@ -140,78 +140,34 @@ export const changePassword = async (currentPassword, newPassword) => {
   }
 };
 
-// ✅ VERIFY AUTH STATUS (UPDATED for consistent format)
+// src/api/auth.api.js
 export const verifyAuth = async () => {
+  const token = getAuthToken();
+
+  if (!token) {
+    return { isAuthenticated: false, user: null, message: "No token found" };
+  }
+
   try {
-    const token = getAuthToken();
+    const response = await apiRequest("/auth/verify", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-    if (!token) {
-      return { 
-        isAuthenticated: false, 
-        user: null, 
-        message: "No token found" 
-      };
+    if (response.success && response.valid) {
+      localStorage.setItem("user", JSON.stringify(response.user));
+      return { isAuthenticated: true, user: response.user, token };
     }
 
-    try {
-      const response = await apiRequest("/auth/verify", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    // Token exists but is invalid — clear it
+    removeAuthToken();
+    return { isAuthenticated: false, user: null, message: "Invalid token" };
 
-      // ✅ UPDATED: Check response.success instead of response.valid
-      if (response.success && response.valid) {
-        localStorage.setItem("user", JSON.stringify(response.user));
-        return {
-          isAuthenticated: true,
-          user: response.user,
-          token: token,
-        };
-      }
-
+  } catch (error) {
+    // 401 = expired/invalid token, clear it cleanly
+    if (error.status === 401) {
       removeAuthToken();
-      return { 
-        isAuthenticated: false, 
-        user: null, 
-        message: "Invalid token" 
-      };
-      
-    } catch {
-      // If /auth/verify doesn't exist or fails, try getProfile
-      console.warn("/auth/verify failed, trying getProfile");
-
-      try {
-        const profileResponse = await getProfile();
-        if (profileResponse.user) {
-          return {
-            isAuthenticated: true,
-            user: profileResponse.user,
-            token: token,
-          };
-        }
-      } catch {
-        removeAuthToken();
-        return {
-          isAuthenticated: false,
-          user: null,
-          message: "Token verification failed",
-        };
-      }
     }
-
-    removeAuthToken();
-    return { 
-      isAuthenticated: false, 
-      user: null 
-    };
-  } catch {
-    removeAuthToken();
-    return {
-      isAuthenticated: false,
-      user: null,
-      message: "Authentication error",
-    };
+    return { isAuthenticated: false, user: null, message: "Token verification failed" };
   }
 };
 
@@ -258,17 +214,13 @@ export const refreshToken = async () => {
     throw new Error("Session expired. Please login again.");
   }
 };
+
 // ✅ CHECK IF USER IS ADMIN
 export const isAdmin = () => {
   const user = getCurrentUser();
   return user && user.role === "admin";
 };
 
-// ✅ CHECK IF USER IS STAFF
-export const isStaff = () => {
-  const user = getCurrentUser();
-  return user && (user.role === "admin" || user.role === "staff");
-};
 
 // ✅ CHECK IF USER IS CUSTOMER
 export const isCustomer = () => {
@@ -282,5 +234,22 @@ export const getAuthHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+export const forgotPassword = async (email) => {
+  const response = await apiRequest("/auth/forgot-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  return response;
+};
+
+export const resetPassword = async (token, password) => {
+  const response = await apiRequest("/auth/reset-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password }),
+  });
+  return response;
+};
 // ✅ REMOVE AUTH TOKEN (helper)
 export { removeAuthToken, getAuthToken, setAuthToken };

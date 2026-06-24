@@ -16,43 +16,20 @@ const errorResponse = (error, statusCode = 500) => ({
 // ✅ GET all menu items with filters
 exports.getAllMenuItems = async (req, res) => {
   try {
-    const {
-      category,
-      minPrice,
-      maxPrice,
-      available,
-      sortBy = "name",
-      page = 1,
-      limit = 20,
-      search,
-    } = req.query;
+    const { category, minPrice, maxPrice, available, sortBy = "name", search } = req.query;
 
     const filters = {
       category,
       minPrice: minPrice ? parseFloat(minPrice) : undefined,
       maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
-      available:
-        available === "true" ? true : available === "false" ? false : undefined,
+      available: available === "true" ? true : available === "false" ? false : undefined,
       sortBy,
-      page: parseInt(page),
-      limit: parseInt(limit),
       search,
     };
 
     const result = await Menu.findAllWithFilters(filters);
 
-    res.json(
-      successResponse(
-        {
-          items: result.items,
-          total: result.total,
-          page: result.page,
-          totalPages: result.totalPages,
-          filters,
-        },
-        "Menu items retrieved successfully"
-      )
-    );
+    res.json(successResponse(result, "Menu items retrieved successfully"));
   } catch (error) {
     console.error("Error getting menu items:", error);
     res.status(500).json(errorResponse(error));
@@ -379,5 +356,43 @@ exports.uploadMenuItemImage = async (req, res) => {
       success: false,
       error: "Server error uploading image"
     });
+  }
+};
+
+// ✅ UPDATE only preparation time
+exports.updatePrepTime = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { preparation_time } = req.body;
+
+    if (preparation_time === undefined || preparation_time < 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "preparation_time is required and must be positive" 
+      });
+    }
+
+    const db = require('../db/pool');
+    
+    const result = await db.query(
+      `UPDATE menu_items 
+       SET preparation_time = $1 
+       WHERE id = $2 
+       RETURNING *`,
+      [preparation_time, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: "Menu item not found" });
+    }
+
+    res.json({ 
+      success: true, 
+      message: "Preparation time updated successfully",
+      data: result.rows[0] 
+    });
+  } catch (error) {
+    console.error("Error updating prep time:", error);
+    res.status(500).json({ success: false, error: error.message });
   }
 };

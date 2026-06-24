@@ -8,9 +8,10 @@ const { verifyToken, authorize } = require("../middleware/auth");
 router.get(
   "/",
   verifyToken,
-  authorize("manager","admin"),
+  authorize("manager","admin","chef","customer"),
   orderController.getAllOrders
 );
+
 router.get("/:id", verifyToken, orderController.getOrderById); // All authenticated users
 router.post("/", orderController.createOrder); // Public - customers can order
 

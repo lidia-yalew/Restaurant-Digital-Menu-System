@@ -1,5 +1,5 @@
 // Login.jsx - FIXED VERSION
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Banner from "./Home/Baner";
 import { motion } from "framer-motion";
 import WetPaintButton from "../componests/UI/Button";
@@ -24,7 +24,10 @@ function Login() {
       [e.target.name]: e.target.value,
     });
   };
-
+useEffect(() => {
+  const remembered = localStorage.getItem("rememberMe") === "true";
+  setRememberMe(remembered);
+}, []);
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -124,20 +127,10 @@ function Login() {
             />
           </div>
 
-          <div className="flex items-center justify-between text-sm text-primary mb-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="accent-white cursor-pointer"
-              />
-              Remember me
-            </label>
-
-            <a href="#" className="hover:underline">
-              Forgot password?
-            </a>
+          <div className=" text-sm text-primary mb-6">
+            <Link to="/forgot-password" className="hover:underline text-primary">
+  Forgot password?
+</Link>
           </div>
 
           <WetPaintButton

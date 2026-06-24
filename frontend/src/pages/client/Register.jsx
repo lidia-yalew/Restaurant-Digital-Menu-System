@@ -7,6 +7,7 @@ import WetPaintButton from "../../componests/UI/Button";
 import chef from "../../assets/IMG/chef.png";
 import { motion } from "framer-motion";
 
+
 function Register() {
   const navigate = useNavigate();
 
@@ -83,18 +84,9 @@ function Register() {
             name="username"
             value={formData.username}
             onChange={handleChange}
-            className="peer w-full px-4 pt-5 pb-2 rounded-xl bg-white/10 border border-primary focus:outline-none focus:ring-2 focus:ring-primary text-primary"
-            placeholder=" "
+            className="peer w-full px-4 pt-3 pb-3 rounded-xl bg-white/10 border border-primary focus:outline-none focus:ring-2 focus:ring-primary text-primary"
+            placeholder="username "
           />
-          <label
-            htmlFor="username"
-            className="absolute left-4 top-2 text-sm text-primary transition-all 
-              peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-base 
-              peer-placeholder-shown:text-black/50 
-              peer-focus:top-2 peer-focus:text-sm peer-focus:text-primary/30"
-          >
-            Username
-          </label>
         </div>
 
         {/* Password */}
@@ -104,18 +96,9 @@ function Register() {
             name="password"
             value={formData.password}
             onChange={handleChange}
-            className="peer w-full px-4 pt-5 pb-2 rounded-xl bg-white/10 border border-primary focus:outline-none focus:ring-2 focus:ring-primary text-primary"
-            placeholder=" "
+            className="peer w-full px-4 pt-3 pb-3 rounded-xl bg-white/10 border border-primary focus:outline-none focus:ring-2 focus:ring-primary text-primary"
+            placeholder="password "
           />
-          <label
-            htmlFor="password"
-            className="absolute left-4 top-2 text-sm text-primary transition-all 
-              peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-base 
-              peer-placeholder-shown:text-black/50 
-              peer-focus:top-2 peer-focus:text-sm peer-focus:text-primary/30"
-          >
-            Password
-          </label>
         </div>
 
         {/* Hidden role field - always customer */}
@@ -130,14 +113,6 @@ function Register() {
           <p className="text-xs text-primary/60 text-center mt-1">
             Create a customer account to order food online
           </p>
-        </div>
-
-        {/* Remember me */}
-        <div className="flex items-center justify-between text-sm text-primary mb-6">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" className="accent-white" />
-            Remember me
-          </label>
         </div>
 
         {/* Submit Button */}

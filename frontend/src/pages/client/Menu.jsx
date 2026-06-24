@@ -27,6 +27,8 @@ import {
   CATEGORY_ICON_COLORS,
   CATEGORY_ORDER
 } from '../Manager/Menu/menuConstants';
+import HeroSection from '../../componests/HeroSection';
+import imghero from "../../assets/IMG/imghero.jfif"
 
 // Helper to get category icon
 const getCategoryIcon = (category) => {
@@ -46,7 +48,8 @@ const getImageUrl = (imageUrl) => {
   if (!imageUrl) return null;
   if (imageUrl.startsWith('http')) return imageUrl;
   if (imageUrl.startsWith('/uploads')) {
-    return `http://localhost:1994${imageUrl}`;
+    const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:1994';
+    return `${baseURL}${imageUrl}`;
   }
   return imageUrl;
 };
@@ -102,18 +105,24 @@ const ClientMenu = () => {
   });
 
   // Add to cart
-  const addToCart = (item) => {
-    const existingItem = cart.find(cartItem => cartItem.id === item.id);
-    if (existingItem) {
-      setCart(cart.map(cartItem =>
-        cartItem.id === item.id
-          ? { ...cartItem, quantity: cartItem.quantity + 1 }
-          : cartItem
-      ));
-    } else {
-      setCart([...cart, { ...item, quantity: 1 }]);
-    }
-  };
+const addToCart = (item) => {
+  const existing = cart.find(c => c.id === item.id);
+  if (existing) {
+    setCart(cart.map(c =>
+      c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c
+    ));
+  } else {
+    setCart([...cart, {
+      id: item.id,
+      name: item.name,
+      price: parseFloat(item.price),
+      quantity: 1,
+      image_url: item.image_url || null,
+      description: item.description || '',
+      category: item.category
+    }]);
+  }
+};
 
   // Remove from cart
   const removeFromCart = (itemId) => {
@@ -251,7 +260,7 @@ const ClientMenu = () => {
 
             {/* Price and Add to Cart */}
             <div className="flex flex-col items-end gap-2 flex-shrink-0">
-              <p className="text-base md:text-lg font-bold text-primary">${item.price}</p>
+              <p className="text-base md:text-lg font-bold text-primary">{item.price} ETB</p>
               <button
                 onClick={() => addToCart(item)}
                 className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all bg-primary text-white hover:bg-primary/80 whitespace-nowrap"
@@ -266,35 +275,17 @@ const ClientMenu = () => {
   );
 
   return (
-    <div className="min-h-screen bg-bg pt-20">
-      {/* Hero Section */}
-      <div className="relative h-64 md:h-80 overflow-hidden">
-        <img
-          src={img2}
-          alt="Menu Hero"
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-          <div className="text-center">
-            <motion.h1
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              className="text-4xl md:text-5xl font-bold text-white mb-4"
-            >
-              Our Menu
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.9 }}
-              className="text-lg text-gray-200"
-            >
-              Discover our delicious selection
-            </motion.p>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-bg">
+      
+
+        {/* Hero Section */}
+       <HeroSection
+        image={imghero}
+        title="Our Menu"
+        subtitle= "Discover our delicious selection"
+        height="h-[50vh] md:h-[55vh]"
+      />
+      
 
       {/* Filters Section */}
       <div className="bg-gray-900/95 backdrop-blur-md border-b border-gray-700">
@@ -302,30 +293,31 @@ const ClientMenu = () => {
 
           {/* Category Filter */}
           <div className="mt-4 mx-auto flex gap-2 overflow-x-auto pb-2">
-            <button
-              onClick={() => setSelectedCategory('all')}
-              className={`px-4 py-2 rounded-full whitespace-nowrap transition-all flex items-center gap-2 text-sm ${
-                selectedCategory === 'all'
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
-              All
-            </button>
-            {categories.map((category) => (
-              <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                className={`px-4 py-2 rounded-full whitespace-nowrap transition-all flex items-center gap-2 text-sm ${
-                  selectedCategory === category
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                }`}
-              >
-                {getCategoryIcon(category)}
-                <span>{CATEGORY_SHORT_NAMES[category] || category}</span>
-              </button>
-            ))}
+           <button
+  key="category_all"
+  onClick={() => setSelectedCategory('all')}
+  className={`px-4 py-2 rounded-full whitespace-nowrap transition-all flex items-center gap-2 text-sm ${
+    selectedCategory === 'all'
+      ? 'bg-primary text-white'
+      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+  }`}
+>
+  All
+</button>
+           {(categories.length > 0 ? categories : CATEGORY_ORDER).map((category, idx) => (
+  <button
+    key={`category_${category}_${idx}`}
+    onClick={() => setSelectedCategory(category)}
+    className={`px-4 py-2 rounded-full whitespace-nowrap transition-all flex items-center gap-2 text-sm ${
+      selectedCategory === category
+        ? 'bg-primary text-white'
+        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+    }`}
+  >
+    {getCategoryIcon(category)}
+    <span>{CATEGORY_SHORT_NAMES[category] || category}</span>
+  </button>
+))}
           </div>
               <div className="flex flex-wrap gap-4 items-center justify-between">
             {/* Search Bar */}
@@ -337,7 +329,7 @@ const ClientMenu = () => {
                   placeholder="Search menu..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-md pl-9 pr-4 py-2 bg-gray-800 border border-gray-600 rounded-full text-white focus:outline-none focus:border-primary text-sm"
+                  className="w-50 pl-9 pr-4 py-2 bg-gray-800 border border-gray-600 rounded-full text-white focus:outline-none focus:border-primary text-sm"
                 />
               </div>
             </div>
@@ -386,11 +378,11 @@ const ClientMenu = () => {
                     <p className="text-gray-400">Your cart is empty</p>
                   </div>
                 ) : (
-                  cart.map((item) => (
-                    <div key={item.id} className="mb-4 p-4 bg-gray-800 rounded-lg">
+                 cart.map((item) => (
+  <div key={`cart_${item.id}`} className="mb-4 p-4 bg-gray-800 rounded-lg">
                       <div className="flex justify-between mb-2">
                         <h3 className="text-white font-semibold text-sm">{item.name}</h3>
-                        <p className="text-primary">${item.price}</p>
+                       
                       </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -408,8 +400,8 @@ const ClientMenu = () => {
                             <FaPlus size={10} />
                           </button>
                         </div>
-                        <p className="text-gray-300 text-sm">
-                          ${(item.price * item.quantity).toFixed(2)}
+                        <p className="text-primary text-sm">
+                          {(item.price * item.quantity).toFixed(2)} <span className='text-white'> ETB</span> 
                         </p>
                       </div>
                     </div>
@@ -421,8 +413,8 @@ const ClientMenu = () => {
                 <div className="border-t border-gray-700 pt-4">
                   <div className="flex justify-between mb-4">
                     <span className="text-white font-semibold">Total:</span>
-                    <span className="text-primary font-bold text-xl">
-                      ${calculateTotal().toFixed(2)}
+                    <span className="text-white font-bold text-xl">
+                      {calculateTotal().toFixed(2)} ETB
                     </span>
                   </div>
                   <button
@@ -451,8 +443,8 @@ const ClientMenu = () => {
           </div>
         ) : (
           <div className="space-y-8">
-            {groupedItems.map((group) => (
-              <div key={group.category}>
+           {groupedItems.map((group, groupIndex) => (
+  <div key={`group_${group.category}_${groupIndex}`}>
                 {/* Category Header */}
                 <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-700">
                   <div className="text-xl">
